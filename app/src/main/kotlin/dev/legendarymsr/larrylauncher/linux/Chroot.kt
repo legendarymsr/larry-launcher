@@ -156,11 +156,11 @@ class Chroot(
      * MLS level (s0:cNNN,...). wl_shm buffers foot and friends create there are then files the
      * launcher (untrusted_app with categories) may map; plain tmpfs:s0 fails the MLS check.
      */
-    internal fun shmContext(): String? {
+    internal fun shmLevel(): String? {
         val parts = runCatching { File("/proc/self/attr/current").readText().trim('\u0000', ' ', '\n') }.getOrNull()?.split(':') ?: return null
         if (parts.size < 4) return null
         val level = parts.drop(3).joinToString(":")
-        return "u:object_r:app_data_file:$level".takeIf { it.matches(SAFE_CONTEXT) }
+        return level.takeIf { "u:object_r:tmpfs:$it".matches(SAFE_CONTEXT) }
     }
 
     @Volatile private var waylandAllowed = false
@@ -237,16 +237,18 @@ class Chroot(
      */
     private fun shmMount(): List<String> {
         val shm = shellQuote(rootfs.path + "/dev/shm")
-        val ctx = shmContext()
+        val level = shmLevel()
         val plain = "m -t tmpfs -o mode=1777,nosuid,nodev tmpfs $shm"
+        if (level == null) return listOf("mkdir -p $shm", plain)
+        // tmpfs keeps the type tmpfs may legally be (no "associate" rule needed, unlike app_data_file)
+        // and only gains the app's categories. Each try's error is kept for the log.
+        val tries =
+            shmContexts(level).joinToString(" || ") { ctx ->
+                "{ e=\$(\$MOUNT -t tmpfs -o ${shellQuote("mode=1777,nosuid,nodev,context=\"$ctx\"")} tmpfs $shm 2>&1) || { shmerr=\"\$shmerr [$ctx: \$e]\"; false; }; }"
+            }
         return listOf(
             "mkdir -p $shm",
-            if (ctx == null) {
-                plain
-            } else {
-                "\$MOUNT -t tmpfs -o ${shellQuote("mode=1777,nosuid,nodev,context=\"$ctx\"")} tmpfs $shm 2>/dev/null || " +
-                    "{ echo 'larrylauncher: /dev/shm without app SELinux context'; $plain; }"
-            },
+            "shmerr=''; $tries || { echo \"larrylauncher: /dev/shm without app SELinux context:\$shmerr\"; $plain; }",
         )
     }
 
@@ -378,7 +380,10 @@ class Chroot(
 
         private val SAFE_TYPE = Regex("[a-z0-9_]+")
 
-        private val SAFE_CONTEXT = Regex("u:object_r:app_data_file:s0(:c[0-9]+(,c[0-9]+)*)?")
+        private val SAFE_CONTEXT = Regex("u:object_r:(tmpfs|app_data_file):s0(:c[0-9]+(,c[0-9]+)*)?")
+
+        /** Candidate /dev/shm contexts at the app's MLS [level], most likely to be accepted first. */
+        internal fun shmContexts(level: String) = listOf("u:object_r:tmpfs:$level", "u:object_r:app_data_file:$level")
 
         /**
          * The magiskpolicy (or KernelSU ksud) script that lets [domain], the launcher's own domain,
@@ -393,6 +398,7 @@ class Chroot(
                     "allow $domain magisk fd use",
                     "allow $domain magisk file { read write getattr map }",
                     "allow $domain tmpfs file { read write getattr map open }",
+                    "allow app_data_file tmpfs filesystem associate",
                     "allow $domain appdomain_tmpfs file { read write getattr map }",
                     "allow $domain magisk_tmpfs file { read write getattr map }",
                     "allow $domain app_data_file file { read write getattr map }",

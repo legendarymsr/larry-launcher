@@ -12,18 +12,23 @@ import java.io.File
 internal val DESKTOP_PACKAGES = listOf("gui-wm/niri", "gui-apps/fuzzel")
 
 /**
- * USE niri's dependency chain needs, from the ebuilds: pango wants freetype[harfbuzz,png] and
- * harfbuzz[glib,truetype]; X and introspection are off to keep the build small.
+ * USE niri's dependency chain needs, matched to the arm64 binhost's own builds so they download
+ * instead of compiling: mesa[X] needs libglvnd[X] (the binhost's desktop mesa is X+wayland+vulkan),
+ * pango/cairo with X and introspection as built there, freetype[harfbuzz,png] for pango.
  */
-internal val DESKTOP_USE =
+internal val DESKTOP_USE_LINES =
     listOf(
         "gui-wm/niri -systemd -screencast dbus",
         "virtual/rust rustfmt",
+        "media-libs/mesa X wayland vulkan llvm opengl",
+        "media-libs/libglvnd X",
         "media-libs/freetype harfbuzz png",
         "media-libs/harfbuzz glib truetype",
-        "x11-libs/pango -X -introspection",
-        "x11-libs/cairo -X",
-    ).joinToString(" ") { shellQuote(it) }
+        "x11-libs/pango X introspection",
+        "x11-libs/cairo X",
+    )
+
+internal val DESKTOP_USE = DESKTOP_USE_LINES.joinToString(" ") { shellQuote(it) }
 
 /**
  * niri and fuzzel live in the GURU overlay, not ::gentoo, and niri's releases are only keyworded ~amd64 there,
@@ -41,7 +46,7 @@ internal val DESKTOP_INSTALL_SCRIPT =
         "find /etc/portage -name '._cfg*' -delete",
         // Released niri only: ~amd64 accepts the tagged ebuilds (they carry that keyword), never the
         // keyword-less live 9999 one, which is masked too.
-        "printf '%s\\n' 'gui-wm/niri ~amd64 ~arm64' 'gui-apps/fuzzel ~arm64' 'dev-lang/rust-bin ~arm64' 'virtual/rust ~arm64' > /etc/portage/package.accept_keywords/larrylauncher-desktop",
+        "printf '%s\\n' 'gui-wm/niri ~amd64 ~arm64' 'gui-apps/fuzzel ~amd64 ~arm64' 'dev-lang/rust-bin ~arm64' 'virtual/rust ~arm64' > /etc/portage/package.accept_keywords/larrylauncher-desktop",
         "printf '%s\\n' '=gui-wm/niri-9999' > /etc/portage/package.mask/larrylauncher-desktop",
         "printf '%s\\n' $DESKTOP_USE > /etc/portage/package.use/larrylauncher-desktop",
         emergeInstall(DESKTOP_PACKAGES),

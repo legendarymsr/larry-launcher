@@ -16,13 +16,16 @@ const val QUICK_EXIT_SECONDS = 8L
 
 /**
  * Whether a launch that ended with [code] after [seconds] should be reported. A non-zero exit
- * always is; a clean, quick exit only if it never put up a window.
+ * is, unless the app showed a window and stayed up past [QUICK_EXIT_SECONDS]; a clean, quick exit
+ * only if it never put up a window.
  */
 fun launchFailed(
     code: Int,
     seconds: Long,
     hadWindow: Boolean,
-): Boolean = code != 0 || (seconds < QUICK_EXIT_SECONDS && !hadWindow)
+): Boolean =
+    if (hadWindow && seconds >= QUICK_EXIT_SECONDS) false // ran and was closed (a shell's exit code is its last command's)
+    else code != 0 || seconds < QUICK_EXIT_SECONDS && !hadWindow
 
 /** One-line summary for a toast: the program, its exit code and its last line of output. */
 fun LaunchFailure.summary(): String {

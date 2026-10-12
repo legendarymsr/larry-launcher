@@ -19,6 +19,13 @@ class DefaultSetTest {
         assertTrue("=gui-wm/niri-9999" in DESKTOP_INSTALL_SCRIPT)
         assertTrue("media-libs/freetype harfbuzz png" in DESKTOP_INSTALL_SCRIPT)
         assertTrue("spawn \"foot\"" in NIRI_CONFIG)
+        assertTrue("media-libs/libglvnd X" in DESKTOP_INSTALL_SCRIPT)
+        assertTrue("gui-apps/fuzzel ~amd64 ~arm64" in DESKTOP_INSTALL_SCRIPT)
+    }
+
+    @Test fun qtGetsTheWaylandPlugin() {
+        assertTrue(PACKAGE_USE.any { it.startsWith("dev-qt/qtbase ") && " wayland" in it })
+        assertTrue("app-editors/neovim-qt ~amd64 ~arm64" in PACKAGE_USE_SCRIPT)
     }
 
     @Test fun emergeAppliesAutounmaskAndRetriesOnce() {

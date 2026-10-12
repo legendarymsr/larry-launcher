@@ -52,6 +52,18 @@ private val MAKE_CONF =
 internal val PACKAGE_USE =
     listOf(
         "x11-libs/libxkbcommon X tools",
+        // Qt apps (nvim-qt...) need the wayland platform plugin, which Qt 6.11 builds into qtbase;
+        // these match the binhost's qtbase/gtk+ build that has it, so it still downloads.
+        "dev-qt/qtbase X cups gtk icu libproxy opengl vulkan wayland",
+        "x11-libs/gtk+ X cups wayland introspection",
+    )
+
+/** Keywords for the packages screen's curated apps that arm64 stable lacks. */
+internal val PACKAGE_KEYWORDS =
+    listOf(
+        "app-editors/micro ~arm64",
+        "dev-vcs/lazygit ~amd64 ~arm64",
+        "app-editors/neovim-qt ~amd64 ~arm64",
     )
 
 /** Rewritten by configure and again before every package install, so a retry re-applies it. */
@@ -89,7 +101,9 @@ private val BAD_BINPKG = Regex("""Invalid binary package:?\s*'?(/var/cache/binpk
 
 internal val PACKAGE_USE_SCRIPT =
     "mkdir -p /etc/portage/package.use && rm -f /etc/portage/package.use/zz-autounmask && printf '%s\\n' " +
-        PACKAGE_USE.joinToString(" ") { shellQuote(it) } + " > /etc/portage/package.use/larrylauncher"
+        PACKAGE_USE.joinToString(" ") { shellQuote(it) } + " > /etc/portage/package.use/larrylauncher && " +
+        "mkdir -p /etc/portage/package.accept_keywords && printf '%s\\n' " +
+        PACKAGE_KEYWORDS.joinToString(" ") { shellQuote(it) } + " > /etc/portage/package.accept_keywords/larrylauncher"
 
 /** What the bootstrap installs; the packages screen doesn't offer to remove these. */
 val CORE_PACKAGES = PACKAGES.toSet()

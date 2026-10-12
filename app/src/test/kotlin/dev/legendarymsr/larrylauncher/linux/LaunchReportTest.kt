@@ -8,7 +8,11 @@ import java.io.File
 import java.nio.file.Files
 
 class LaunchReportTest {
-    @Test fun nonZeroExitIsAFailure() = assertTrue(launchFailed(1, 100, hadWindow = true))
+    @Test fun nonZeroExitIsAFailure() = assertTrue(launchFailed(1, 100, hadWindow = false))
+
+    @Test fun quickNonZeroExitWithWindowIsAFailure() = assertTrue(launchFailed(1, 2, hadWindow = true))
+
+    @Test fun closedTerminalAfterAWhileIsNot() = assertFalse(launchFailed(1, 16, hadWindow = true))
 
     @Test fun quickCleanExitWithoutWindowIsAFailure() = assertTrue(launchFailed(0, 1, hadWindow = false))
 
