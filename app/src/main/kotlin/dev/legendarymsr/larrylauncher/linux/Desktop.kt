@@ -118,25 +118,35 @@ class Desktop(
      * to llvmpipe on the wayland platform, whose swrast path presents through wl_shm, the only
      * buffer type the launcher's compositor takes. Logs and backtraces go to the launch output.
      */
-    fun startCommand(gpu: Boolean): String {
-        val env =
-            listOf("EGL_PLATFORM=wayland", "RUST_BACKTRACE=1", "RUST_LOG=niri=info,smithay=warn", "NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY=1", "XCURSOR_SIZE=24", "LP_NATIVE_VECTOR_WIDTH=128") +
-                if (gpu) emptyList() else listOf("LIBGL_ALWAYS_SOFTWARE=1")
-        // llvmpipe JITs code for the CPU LLVM detects; on some phones that faults (SIGILL, exit 132).
-        // Then niri runs again on softpipe, which interprets instead: slower, but no JIT.
-        val run = "env ${env.joinToString(" ")}"
-        val script =
-            "c=\$HOME/.config/niri/config.kdl; [ -s \"\$c\" ] || { mkdir -p \"\${c%/*}\" && printf '%s' ${shellQuote(NIRI_CONFIG)} > \"\$c\"; }; " +
-                "niri validate -c \"\$c\" 2>&1 | tail -n 5; " +
-                "grep -m3 -E '^(CPU part|Features|CPU architecture)' /proc/cpuinfo; " +
-                (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else
-                    "$run GALLIUM_DRIVER=llvmpipe niri -c \"\$c\" 2>&1; rc=\$?; " +
-                        "[ \$rc -eq 132 ] || exit \$rc; echo 'larrylauncher: niri hit SIGILL on llvmpipe, retrying on softpipe'; " +
-                        "exec $run GALLIUM_DRIVER=softpipe niri -c \"\$c\" 2>&1")
-        return "sh -c " + shellQuote(script)
-    }
+    fun startCommand(gpu: Boolean): String = niriStartCommand(gpu)
 
     companion object {
         const val STOP_COMMAND = "pkill -x niri"
     }
+}
+
+internal fun niriStartCommand(gpu: Boolean): String {
+    val env =
+        listOf("EGL_PLATFORM=wayland", "RUST_BACKTRACE=1", "RUST_LOG=niri=info,smithay=warn", "NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY=1", "XCURSOR_SIZE=24", "LP_NATIVE_VECTOR_WIDTH=128") +
+            if (gpu) emptyList() else listOf("LIBGL_ALWAYS_SOFTWARE=1")
+    // llvmpipe JITs for the CPU LLVM names from /proc/cpuinfo's "CPU part". On arm64 Mesa passes
+    // no feature list, so that name alone decides: newer Cortex parts (X3/A715/A510...) imply SVE2,
+    // which Qualcomm and Android kernels turn off, so the JIT'd code dies with SIGILL. niri gets a
+    // private mount namespace where /proc/cpuinfo has no CPU implementer/part lines: LLVM then
+    // returns "generic" (plain armv8-a + NEON, which every phone has). Gentoo's mesa[llvm] has no
+    // softpipe (the ebuild builds one or the other), so there is no non-JIT fallback to retry on.
+    val run = "env ${env.joinToString(" ")}"
+    val niri = "$run GALLIUM_DRIVER=llvmpipe niri -c \"\$c\""
+    val masked =
+        "m=/tmp/.larrylauncher-cpuinfo; grep -v -E '^CPU (implementer|part|variant|revision)' /proc/cpuinfo > \"\$m\"; " +
+            "if unshare -m true 2>/dev/null; then exec unshare -m sh -c 'mount --bind \"\$0\" /proc/cpuinfo && " +
+            "echo \"larrylauncher: cpuinfo masked, LLVM CPU: generic\" || echo \"larrylauncher: could not mask cpuinfo, llvmpipe may SIGILL\"; " +
+            "exec \"\$@\"' \"\$m\" $niri; fi; echo 'larrylauncher: no mount namespace, llvmpipe may SIGILL'; exec $niri"
+    val script =
+        "c=\$HOME/.config/niri/config.kdl; [ -s \"\$c\" ] || { mkdir -p \"\${c%/*}\" && printf '%s' ${shellQuote(NIRI_CONFIG)} > \"\$c\"; }; " +
+            "niri validate -c \"\$c\" 2>&1 | tail -n 5; " +
+            "grep -m3 -E '^(CPU part|Features|CPU architecture)' /proc/cpuinfo; " +
+            (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else
+                "exec 2>&1; $masked")
+    return "sh -c " + shellQuote(script)
 }
