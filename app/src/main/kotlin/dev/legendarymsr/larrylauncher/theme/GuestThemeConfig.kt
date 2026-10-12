@@ -39,6 +39,9 @@ class GuestThemeConfig(
         // No template set ships with the app any more: foot's colors are generated from the palette.
         val foot = File(themeDir, "foot.ini")
         if (!foot.exists()) foot.writeText(footTheme(footColors(theme.colors)))
+        // Likewise btop's, which its config selects through the symlink below.
+        val btop = File(themeDir, "btop.theme")
+        if (!btop.exists()) btop.writeText(btopTheme(theme.colors))
         symlink("${Chroot.GUEST_HOME}/.local/state/larrylauncher/current/theme/btop.theme", File(home, ".config/btop/themes/current.theme"))
     }
 
@@ -85,6 +88,8 @@ class GuestThemeConfig(
         }
         // btop rewrites its config on exit; from then on it's the user's.
         copy("config/btop/btop.conf", ".config/btop/btop.conf")
+        // No theme pack ships one any more: a minimal config that picks the generated theme.
+        if (!File(themesDir, "config/btop/btop.conf").isFile) seed(".config/btop/btop.conf") { "color_theme = \"current\"\ntheme_background = True\n" }
         files.add(Managed.text(File(chroot.rootfs, "usr/local/bin/btop"), Policy.Owned, executable = true) { BTOP })
         copy("icon.txt", ".config/larrylauncher/branding/about.txt")
         copy("config/starship.toml", ".config/starship.toml")
@@ -132,6 +137,41 @@ class GuestThemeConfig(
 
     internal companion object {
         /** foot's [colors] section for a resolved palette; every key falls back so it always parses. */
+        /** A btop theme from the palette, Tokyo Night where a color is missing. */
+        fun btopTheme(c: Map<String, String>): String {
+            fun col(key: String, fallback: String) = "#" + (c[key] ?: c[fallback] ?: "").removePrefix("#").ifEmpty { DEFAULT_HEX[fallback] ?: "a9b1d6" }
+            val bg = col("background", "background")
+            val fg = col("foreground", "foreground")
+            val accent = col("accent", "blue")
+            val green = col("green", "green")
+            val yellow = col("yellow", "yellow")
+            val red = col("red", "red")
+            val muted = col("color8", "bright_black")
+            val pairs =
+                listOf(
+                    "main_bg" to bg, "main_fg" to fg, "title" to fg, "hi_fg" to accent,
+                    "selected_bg" to accent, "selected_fg" to bg, "inactive_fg" to muted,
+                    "graph_text" to fg, "meter_bg" to muted, "proc_misc" to accent,
+                    "cpu_box" to accent, "mem_box" to green, "net_box" to yellow, "proc_box" to accent, "div_line" to muted,
+                    "temp_start" to green, "temp_mid" to yellow, "temp_end" to red,
+                    "cpu_start" to green, "cpu_mid" to yellow, "cpu_end" to red,
+                    "free_start" to green, "free_mid" to yellow, "free_end" to red,
+                    "cached_start" to accent, "cached_mid" to accent, "cached_end" to accent,
+                    "available_start" to green, "available_mid" to green, "available_end" to green,
+                    "used_start" to yellow, "used_mid" to yellow, "used_end" to red,
+                    "download_start" to green, "download_mid" to yellow, "download_end" to red,
+                    "upload_start" to green, "upload_mid" to yellow, "upload_end" to red,
+                    "process_start" to green, "process_mid" to yellow, "process_end" to red,
+                )
+            return "# larrylauncher: generated from the theme's colors\n" + pairs.joinToString("") { (k, v) -> "theme[$k]=\"$v\"\n" }
+        }
+
+        private val DEFAULT_HEX =
+            mapOf(
+                "background" to "1a1b26", "foreground" to "a9b1d6", "blue" to "7aa2f7", "green" to "9ece6a",
+                "yellow" to "e0af68", "red" to "f7768e", "bright_black" to "414868",
+            )
+
         fun footTheme(c: Map<String, String>): String {
             fun hex(key: String, fallback: String) = (c[key] ?: fallback).removePrefix("#")
             val bg = hex("background", "1a1b26")
@@ -199,6 +239,7 @@ class GuestThemeConfig(
             """
             #!/bin/sh
             # larrylauncher: btop with fewer boxes in a narrow terminal (see GuestThemeConfig.kt)
+            [ -x /usr/bin/btop ] || { echo "btop isn't installed: install sys-process/btop from settings > packages" >&2; exit 127; }
             [ ${'$'}# -eq 0 ] || exec /usr/bin/btop "${'$'}@"
             cols=${'$'}(stty size 2>/dev/null | cut -d' ' -f2)
             cols=${'$'}{cols:-80}

@@ -12,8 +12,22 @@ import java.io.File
 internal val DESKTOP_PACKAGES = listOf("gui-wm/niri", "gui-apps/fuzzel")
 
 /**
- * niri and fuzzel live in the GURU overlay, not ::gentoo, and niri is only keyworded ~amd64 there, so it
- * needs `**`. Neither is on the arm64 binhost: niri compiles from source (Rust, plus clang for bindgen),
+ * USE niri's dependency chain needs, from the ebuilds: pango wants freetype[harfbuzz,png] and
+ * harfbuzz[glib,truetype]; X and introspection are off to keep the build small.
+ */
+internal val DESKTOP_USE =
+    listOf(
+        "gui-wm/niri -systemd -screencast dbus",
+        "virtual/rust rustfmt",
+        "media-libs/freetype harfbuzz png",
+        "media-libs/harfbuzz glib truetype",
+        "x11-libs/pango -X -introspection",
+        "x11-libs/cairo -X",
+    ).joinToString(" ") { shellQuote(it) }
+
+/**
+ * niri and fuzzel live in the GURU overlay, not ::gentoo, and niri's releases are only keyworded ~amd64 there,
+ * so that keyword is accepted for it. Neither is on the arm64 binhost: niri compiles from source (Rust, plus clang for bindgen),
  * which takes a long time and a few GB on a phone. Rust comes from the newest rust-bin.
  */
 internal val DESKTOP_INSTALL_SCRIPT =
@@ -22,8 +36,14 @@ internal val DESKTOP_INSTALL_SCRIPT =
         "(eselect repository list -i | grep -qw guru || eselect repository enable guru)",
         "emaint sync -r guru",
         "mkdir -p /etc/portage/package.accept_keywords /etc/portage/package.use",
-        "printf '%s\\n' 'gui-wm/niri **' 'gui-apps/fuzzel ~arm64' 'dev-lang/rust-bin ~arm64' 'virtual/rust ~arm64' > /etc/portage/package.accept_keywords/larrylauncher-desktop",
-        "printf '%s\\n' 'gui-wm/niri -systemd -screencast dbus' 'virtual/rust rustfmt' > /etc/portage/package.use/larrylauncher-desktop",
+        "mkdir -p /etc/portage/package.mask",
+        // A failed earlier run's unapplied autounmask files (they pulled the live niri-9999).
+        "find /etc/portage -name '._cfg*' -delete",
+        // Released niri only: ~amd64 accepts the tagged ebuilds (they carry that keyword), never the
+        // keyword-less live 9999 one, which is masked too.
+        "printf '%s\\n' 'gui-wm/niri ~amd64 ~arm64' 'gui-apps/fuzzel ~arm64' 'dev-lang/rust-bin ~arm64' 'virtual/rust ~arm64' > /etc/portage/package.accept_keywords/larrylauncher-desktop",
+        "printf '%s\\n' '=gui-wm/niri-9999' > /etc/portage/package.mask/larrylauncher-desktop",
+        "printf '%s\\n' $DESKTOP_USE > /etc/portage/package.use/larrylauncher-desktop",
         emergeInstall(DESKTOP_PACKAGES),
     ).joinToString(" && ")
 

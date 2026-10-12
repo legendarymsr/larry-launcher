@@ -34,9 +34,32 @@ fun loadLinuxApps(chroot: Chroot): List<LinuxApp> {
         .distinctBy { it.name }
         // An entry may be a link to an absolute guest path (some packages link from /opt), which the host can't open.
         .mapNotNull { runCatching { parseDesktopEntry(it) }.getOrNull() }
+        // Curated entries (btop, micro, ...) are seeded whether or not the package is installed.
+        .filter { isInstalled(chroot.rootfs, it.exec) }
         .distinctBy { it.name }
         .sortedBy { it.name.lowercase() }
 }
+
+private val BIN_DIRS = listOf("usr/local/bin", "usr/bin", "bin", "usr/sbin", "sbin")
+
+/**
+ * Whether the program [exec] runs is in the guest. The launcher's own wrappers in /usr/local/bin
+ * (btop) only count when the program they wrap is there; launcher commands always do.
+ */
+internal fun isInstalled(
+    rootfs: File,
+    exec: String,
+): Boolean {
+    var cmd = exec.trim().split(Regex("\\s+")).firstOrNull()?.trim('"', '\'') ?: return false
+    if (cmd == "env") return true
+    if (cmd.startsWith("larrylauncher")) return true
+    if (cmd.startsWith("/")) return File(rootfs, cmd.removePrefix("/")).exists()
+    if (cmd in WRAPPED) return File(rootfs, "usr/bin/$cmd").exists()
+    return BIN_DIRS.any { File(rootfs, "$it/$cmd").exists() }
+}
+
+/** Programs the launcher wraps with a script of the same name in /usr/local/bin. */
+private val WRAPPED = setOf("btop")
 
 private fun parseDesktopEntry(file: File): LinuxApp? {
     var inEntry = false

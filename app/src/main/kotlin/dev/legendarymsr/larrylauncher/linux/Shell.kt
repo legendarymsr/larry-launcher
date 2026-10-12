@@ -11,8 +11,20 @@ fun shellQuote(s: String) = "'" + s.replace("'", "'\\''") + "'"
 fun emergeInstall(
     atoms: Collection<String>,
     sync: Boolean = false,
-) = (if (sync) "$PORTAGE_SYNC && " else "") +
-    "emerge --ask=n --noreplace --getbinpkg --quiet-build=y --color=n --autounmask=y --autounmask-write=y --autounmask-continue=y --autounmask-use=y --binpkg-respect-use=y ${atoms.joinToString(" ") { shellQuote(it) }} && $CLEAN_PORTAGE_CACHE"
+): String {
+    // CONFIG_PROTECT_MASK=/etc/portage: autounmask writes its USE/keyword changes in place instead of as
+    // ._cfg files that nothing applies. If emerge still stops, any pending ._cfg files are merged and it
+    // retries once. --binpkg-respect-use builds from source where no binary package has the needed USE.
+    val emerge =
+        "CONFIG_PROTECT_MASK=/etc/portage emerge --ask=n --noreplace --getbinpkg --quiet-build=y --color=n " +
+            "--autounmask=y --autounmask-write=y --autounmask-continue=y --autounmask-use=y --binpkg-respect-use=y " +
+            atoms.joinToString(" ") { shellQuote(it) }
+    return (if (sync) "$PORTAGE_SYNC && " else "") +
+        "{ $emerge || { echo 'larrylauncher: applying Portage config changes and retrying once'; $APPLY_PORTAGE_CFG; $emerge; }; } && $CLEAN_PORTAGE_CACHE"
+}
+
+/** Merges ._cfg files autounmask left under /etc/portage (etc-update's "use new" for every file). */
+const val APPLY_PORTAGE_CFG = "{ etc-update --automode -5 /etc/portage >/dev/null 2>&1 || true; }"
 
 /** Syncs the ebuild tree; emerge-webrsync if rsync isn't reachable (it often isn't on mobile data). */
 const val PORTAGE_SYNC = "{ emaint sync -a || emerge-webrsync; }"
