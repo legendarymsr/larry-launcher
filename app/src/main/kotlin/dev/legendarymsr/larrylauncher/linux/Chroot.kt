@@ -312,6 +312,9 @@ class Chroot(
                 "XDG_RUNTIME_DIR=$GUEST_RUNTIME_DIR",
                 "WAYLAND_DISPLAY=${waylandSocket.name}",
                 "XDG_SESSION_TYPE=wayland",
+                // fastfetch's WM line falls back to these when the socket peer is the Android app.
+                "XDG_CURRENT_DESKTOP=larrylauncher",
+                "XDG_SESSION_DESKTOP=larrylauncher",
                 "GDK_BACKEND=wayland",
                 "QT_QPA_PLATFORM=wayland",
                 "MOZ_ENABLE_WAYLAND=1",

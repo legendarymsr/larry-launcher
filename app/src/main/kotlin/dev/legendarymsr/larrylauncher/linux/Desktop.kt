@@ -75,6 +75,11 @@ internal fun niriConfig(density: Float): String =
         scale ${niriScale(density)}
     }
     prefer-no-csd
+    environment {
+        XDG_CURRENT_DESKTOP "niri"
+        XDG_SESSION_DESKTOP "niri"
+        XDG_SESSION_TYPE "wayland"
+    }
     cursor {
         xcursor-size 24
     }
@@ -186,7 +191,7 @@ internal fun niriStartCommand(
     density: Float = 2f,
 ): String {
     val env =
-        listOf("WAYLAND_DISPLAY=\$w", "EGL_PLATFORM=wayland", "RUST_BACKTRACE=1", "RUST_LOG=niri=info,smithay=warn", "NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY=1", "XCURSOR_SIZE=24", "LP_NATIVE_VECTOR_WIDTH=128") +
+        listOf("WAYLAND_DISPLAY=\$w", "XDG_CURRENT_DESKTOP=niri", "XDG_SESSION_DESKTOP=niri", "XDG_SESSION_TYPE=wayland", "EGL_PLATFORM=wayland", "RUST_BACKTRACE=1", "RUST_LOG=niri=info,smithay=warn", "NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY=1", "XCURSOR_SIZE=24", "LP_NATIVE_VECTOR_WIDTH=128") +
             if (gpu) emptyList() else listOf("LIBGL_ALWAYS_SOFTWARE=1")
     val run = "env ${env.joinToString(" ")}"
     // mesa is built -llvm now: softpipe, no JIT. An install still on the old mesa[llvm] (rebuild
