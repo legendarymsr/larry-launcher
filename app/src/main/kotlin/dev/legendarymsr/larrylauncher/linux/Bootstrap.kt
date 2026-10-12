@@ -56,18 +56,24 @@ internal val PACKAGE_USE =
 
 /** Rewritten by configure and again before every package install, so a retry re-applies it. */
 /**
- * Portage's keyring, made by getuto as the guest's root. gpg refuses a homedir that isn't
- * owned by the caller with mode 0700 ("unsafe ownership"), so force that after getuto,
- * also fixing a keyring an older build left with the app's uid.
+ * Portage's binpkg keyring, rebuilt from scratch by getuto as the guest's root. getuto only
+ * initialises (imports + lsigns the Gentoo release keys) when /etc/portage/gnupg is absent;
+ * an existing partial keyring from an earlier failed run is just "refreshed". Its own perms
+ * (dir 0755, files readable) are kept: Portage verifies as the portage user, so a 0700 root
+ * keyring reads as empty (NO_PUBKEY). Fails unless the binhost key is present.
  */
 internal const val GETUTO_SCRIPT =
-    "getuto && chown -R root:root /etc/portage/gnupg && chmod 700 /etc/portage/gnupg"
+    "test -s /usr/share/openpgp-keys/gentoo-release.asc && " +
+        "chmod 1777 /tmp && rm -rf /etc/portage/gnupg /etc/portage/gnupg.getuto.tmp && " +
+        "getuto && " +
+        "gpg --homedir /etc/portage/gnupg --batch --list-keys 2C44695DB9F6043D >/dev/null && " +
+        "chown -R root:root /etc/portage/gnupg && chmod -R go+rX /etc/portage/gnupg"
 
 /** Portage's build/temp dirs with the owners and modes it expects, since /var/tmp may have come out wrong. */
 internal const val PORTAGE_DIRS_SCRIPT =
     "mkdir -p /var/tmp/portage /var/cache/binpkgs && chmod 1777 /var/tmp && " +
         "chown portage:portage /var/tmp/portage && chmod 775 /var/tmp/portage && " +
-        "{ [ ! -d /etc/portage/gnupg ] || { chown -R root:root /etc/portage/gnupg && chmod 700 /etc/portage/gnupg; }; }"
+        "{ [ ! -d /etc/portage/gnupg ] || { chown -R root:root /etc/portage/gnupg && chmod -R go+rX /etc/portage/gnupg; }; }"
 
 /**
  * Deletes downloaded binpkgs whose signature didn't verify (a failed earlier run leaves them
@@ -201,7 +207,7 @@ class Bootstrap(
                 guest(configureScript())
             },
             Step("sync-1", Stage.Configure, "Fetching the Portage tree", network = true) { guest("emerge-webrsync") },
-            Step("getuto-2", Stage.Configure, "Trusting the binhost's key", network = true) { guest(GETUTO_SCRIPT) },
+            Step("getuto-3", Stage.Configure, "Trusting the binhost's key", network = true) { guest(GETUTO_SCRIPT) },
             Step("packages-3", Stage.Packages, "Installing packages", network = true) {
                 guest("$PORTAGE_DIRS_SCRIPT && $DROP_BAD_BINPKGS_SCRIPT && $PACKAGE_USE_SCRIPT && " + emergeInstall(PACKAGES))
             },
