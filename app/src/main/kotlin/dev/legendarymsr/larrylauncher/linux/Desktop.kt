@@ -9,7 +9,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /** Atoms the optional Gentoo desktop adds; none of them are in the default install. */
-internal val DESKTOP_PACKAGES = listOf("gui-wm/niri", "gui-apps/fuzzel")
+internal val DESKTOP_PACKAGES = listOf("gui-wm/niri", "gui-apps/fuzzel", "app-misc/fastfetch")
 
 /**
  * USE niri's dependency chain needs, matched to the arm64 binhost's own builds so they download
@@ -75,6 +75,7 @@ internal fun niriConfig(density: Float): String =
         scale ${niriScale(density)}
     }
     prefer-no-csd
+    spawn-at-startup "foot" "sh" "-c" "command -v fastfetch >/dev/null && fastfetch; exec bash -l"
     environment {
         XDG_CURRENT_DESKTOP "niri"
         XDG_SESSION_DESKTOP "niri"
@@ -211,6 +212,8 @@ internal fun niriStartCommand(
             // Ours (managed marker, or the old write-once seed) is rewritten with the current density; a user's own is kept.
             "if [ ! -s \"\$c\" ] || head -n 1 \"\$c\" | grep -q '^// larrylauncher:'; then printf '%s' ${shellQuote(niriConfig(density))} > \"\$c\"; fi; " +
             "w=wayland-niri; [ -S \"\$XDG_RUNTIME_DIR/\$w\" ] || { echo 'larrylauncher: no wayland-niri socket, using the scaled one'; w=\$WAYLAND_DISPLAY; }; " +
+            // Older desktop installs predate fastfetch: fetch it in the background (best effort, binpkg if any).
+            "command -v fastfetch >/dev/null 2>&1 || { echo 'larrylauncher: installing fastfetch in the background'; (emerge --quiet --noreplace --getbinpkg app-misc/fastfetch > /tmp/.larrylauncher-fastfetch.log 2>&1 &) ; }; " +
             "niri validate -c \"\$c\" 2>&1 | tail -n 5; " +
             (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else "exec 2>&1; $software")
     return "sh -c " + shellQuote(script)
