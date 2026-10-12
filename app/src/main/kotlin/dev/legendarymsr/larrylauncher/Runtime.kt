@@ -132,6 +132,11 @@ class Runtime(
     /** The Linux install and removal; one at a time. */
     private var linuxJob: Job? = null
 
+    @Volatile private var linuxChecked = false
+
+    /** A job is (or is about to be) moving [Bootstrap.state] on; when false, Checking is stale. */
+    val linuxBusy get() = linuxJob?.isActive == true || !linuxChecked
+
     /** Set when something that needs Linux was asked for without it; the home screen opens the install sheet and clears it. */
     var linuxWanted by mutableStateOf(false)
 
@@ -185,6 +190,7 @@ class Runtime(
             themes.load()
             widgets.start()
             if (bootstrap.wanted) runLinux { bootstrap.run() } else bootstrap.run()
+            linuxChecked = true
         }
     }
 
@@ -211,14 +217,26 @@ class Runtime(
         if (linuxJob?.isActive == true) return
         linuxJob =
             scope.launch {
-                setService(true)
-                withContext(Dispatchers.IO) {
-                    if (!prepared) {
-                        chroot.prepare()
-                        prepared = true
+                try {
+                    setService(true)
+                    withContext(Dispatchers.IO) {
+                        if (!prepared) {
+                            // Leftovers of an old run must not keep Linux from starting.
+                            runCatching { chroot.prepare() }.onFailure { Log.e(TAG, "prepare", it) }
+                            prepared = true
+                        }
                     }
+                    work()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    bootstrap.markStopped("stopped before it finished")
+                    throw e
+                } catch (e: Throwable) {
+                    Log.e(TAG, "linux job failed", e)
+                    bootstrap.markStopped(e.message ?: e.toString())
+                } finally {
+                    // Nothing may leave the panel on Checking/Installing with no job behind it.
+                    bootstrap.markStopped("stopped before it finished")
                 }
-                work()
                 if (bootstrap.isInstalled) onLinuxReady() else setService(false)
             }
     }

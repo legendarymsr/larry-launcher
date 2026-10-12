@@ -104,6 +104,23 @@ sealed interface LinuxState {
     data object Installed : LinuxState
 
     data object Removing : LinuxState
+
+    companion object {
+        /**
+         * What a state shows once the job that owned it is gone (an exception escaped it, it was
+         * cancelled, or the process died mid-step): Checking or Installing become Failed, so the
+         * panel always has the step list and a retry.
+         */
+        fun stopped(
+            state: LinuxState,
+            reason: String,
+        ): LinuxState =
+            when (state) {
+                Checking -> Failed(Stage.Download, reason, emptyList())
+                is Installing -> Failed(state.stage, "${state.step}: $reason", state.log)
+                else -> state
+            }
+    }
 }
 
 /**
@@ -228,11 +245,19 @@ class Bootstrap(
                     }
                 }
                 _state.value = LinuxState.Installed
-            } catch (e: Exception) {
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                _state.value = LinuxState.stopped(_state.value, "stopped before it finished")
+                throw e
+            } catch (e: Throwable) {
                 Log.e(TAG, "setup failed", e)
                 _state.value = LinuxState.Failed(stage, e.message ?: e.toString(), log.toList())
             }
         }
+
+    /** The job driving [state] ended without settling it (see [LinuxState.stopped]). */
+    fun markStopped(reason: String) {
+        _state.value = LinuxState.stopped(_state.value, reason)
+    }
 
     /** Starts installing Linux with [picked] coding agents; see [run]. */
     suspend fun install(picked: List<Agent>) {

@@ -79,9 +79,13 @@ class Chroot(
             val result =
                 try {
                     val p = ProcessBuilder(SU, "-c", "id").redirectErrorStream(true).start()
-                    val out = p.inputStream.bufferedReader().readText()
+                    // Read on the side: a blocking read here would make the timeout never fire.
+                    val buf = StringBuffer()
+                    val reader = Thread { runCatching { buf.append(p.inputStream.bufferedReader().readText()) } }.apply { isDaemon = true; start() }
                     val done = p.waitFor(60, TimeUnit.SECONDS)
-                    if (!done) p.destroy()
+                    if (!done) p.destroyForcibly()
+                    reader.join(2_000)
+                    val out = buf.toString()
                     when {
                         done && p.exitValue() == 0 && out.contains("uid=0") -> RootState.Granted
                         !done -> RootState.Denied("Magisk didn't answer in time. Tap retry and grant Larry Launcher root.")
@@ -127,11 +131,15 @@ class Chroot(
     fun prepare() {
         killAll()
         for (dir in listOf(tmpDir, runtimeDir)) {
-            LauncherData.deleteTree(dir)
+            // The guest leaves root-owned files here that the app can't delete; root can.
+            runCatching { LauncherData.deleteTree(dir) }.onFailure {
+                Log.w(TAG, "clearing $dir", it)
+                if (rootGranted) runCatching { rootShell("rm -rf ${shellQuote(dir.path)}") }
+            }
             dir.mkdirs()
         }
         for ((_, host) in dataBinds) host.mkdirs()
-        if (rootfs.isDirectory && checkRoot()) relabel()
+        if (rootfs.isDirectory && checkRoot()) runCatching { relabel() }.onFailure { Log.w(TAG, "relabel", it) }
     }
 
     /** The app's own SELinux context and uid, so files root wrote in the guest stay readable by the launcher. */

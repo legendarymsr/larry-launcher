@@ -59,7 +59,13 @@ fun LinuxScreen(
     OverlayPanel("linux", onDismiss, contentWidth = ReadingWidth) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 4.dp)) {
             when (val s = state) {
-                LinuxState.Checking -> {}
+                LinuxState.Checking ->
+                    if (runtime.linuxBusy) {
+                        BasicText("checking linux…", style = Mono.copy(color = Palette.muted))
+                    } else {
+                        // No job will move it on: show the steps and a retry instead of nothing.
+                        LinuxProgress(LinuxState.stopped(s, "linux didn't start"), runtime.bootstrap.chosenAgents, runtime::retryLinux)
+                    }
                 LinuxState.NotInstalled -> InstallOffer(runtime)
                 is LinuxState.Installing, is LinuxState.Failed -> LinuxProgress(s, runtime.bootstrap.chosenAgents, runtime::retryLinux)
                 LinuxState.Installed -> Installed(runtime)
