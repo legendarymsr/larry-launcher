@@ -68,7 +68,12 @@ class WindowManager : WindowManagerHooks {
     /** Pixels per logical pixel (the wl_output scale). */
     val scale get() = server.output.scale
 
+    /** Toplevels ever created, any thread may read it: tells a launch whether a window came up. */
+    @Volatile var toplevelsCreated = 0
+        private set
+
     override fun toplevelCreated(toplevel: XdgToplevel) {
+        toplevelsCreated++
         main.post {
             created(toplevel)
             if (claim(toplevel)) {

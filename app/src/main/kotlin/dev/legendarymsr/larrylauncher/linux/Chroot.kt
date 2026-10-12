@@ -140,6 +140,39 @@ class Chroot(
         }
         for ((_, host) in dataBinds) host.mkdirs()
         if (rootfs.isDirectory && checkRoot()) runCatching { relabel() }.onFailure { Log.w(TAG, "relabel", it) }
+        allowWayland()
+    }
+
+    /** The app's own SELinux domain (untrusted_app, untrusted_app_32, ...), or null if unreadable. */
+    private fun appDomain(): String? =
+        runCatching { File("/proc/self/attr/current").readText().trim('\u0000', ' ', '\n') }
+            .getOrNull()
+            ?.split(':')
+            ?.getOrNull(2)
+            ?.takeIf { it.matches(SAFE_TYPE) }
+
+    @Volatile private var waylandAllowed = false
+
+    /**
+     * Lets guest clients (root, in Magisk's `magisk` domain) talk Wayland to the launcher (an
+     * untrusted_app): connect to its socket, and let the app accept the fds clients pass
+     * (wl_shm memfds, dmabufs). Without these SELinux silently drops the fds and every
+     * client dies on its first buffer. Each rule is applied on its own, so one unknown type
+     * on this phone's policy doesn't drop the rest. Best effort; once per process.
+     */
+    fun allowWayland() {
+        if (waylandAllowed || !rootGranted) return
+        val domain = appDomain() ?: "untrusted_app"
+        val code = runCatching { rootShell(waylandPolicyScript(domain)) { Log.i(TAG, "sepolicy: $it") } }.getOrElse { -1 }
+        Log.i(TAG, "sepolicy for $domain: $code")
+        waylandAllowed = true
+    }
+
+    /** Recent SELinux denials from the kernel log, for a launch that failed. */
+    fun recentDenials(): List<String> {
+        val out = mutableListOf<String>()
+        runCatching { rootShell("dmesg 2>/dev/null | grep 'avc:.*denied' | tail -n 4") { out += it } }
+        return out
     }
 
     /** The app's own SELinux context and uid, so files root wrote in the guest stay readable by the launcher. */
@@ -230,6 +263,9 @@ class Chroot(
                 // Android's zone name (e.g. Europe/Berlin); the guest otherwise runs on UTC.
                 "TZ=${java.util.TimeZone.getDefault().id}",
                 "TERM=xterm-256color",
+                "SHELL=/bin/bash",
+                "XDG_DATA_DIRS=/usr/local/share:/usr/share",
+                "XDG_CONFIG_DIRS=/etc/xdg",
                 // mise-installed tools (node, say) live in the last two.
                 "PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin:/root/.local/bin:/root/.local/share/mise/shims",
                 "BROWSER=xdg-open",
@@ -306,6 +342,35 @@ class Chroot(
 
         /** Shown wherever Linux is switched on. */
         const val ROOT_WARNING = "The Gentoo guest runs as the phone's real root (uid 0), not a sandbox: anything run in it can change Android."
+
+        private val SAFE_TYPE = Regex("[a-z0-9_]+")
+
+        /**
+         * The magiskpolicy (or KernelSU ksud) script that lets [domain], the launcher's own domain,
+         * serve Wayland to root guest processes. One rule per call: a type this policy lacks only fails its line.
+         */
+        internal fun waylandPolicyScript(domain: String): String {
+            require(domain.matches(SAFE_TYPE)) { "bad domain $domain" }
+            val rules =
+                listOf(
+                    "allow magisk $domain unix_stream_socket { connectto read write getattr getopt setopt shutdown }",
+                    "allow $domain magisk unix_stream_socket { read write getattr getopt setopt shutdown accept }",
+                    "allow $domain magisk fd use",
+                    "allow $domain magisk file { read write getattr map }",
+                    "allow $domain tmpfs file { read write getattr map }",
+                    "allow $domain appdomain_tmpfs file { read write getattr map }",
+                    "allow $domain magisk_tmpfs file { read write getattr map }",
+                    "allow $domain app_data_file file { read write getattr map }",
+                    "allow $domain dmabuf_system_heap_device chr_file { read write getattr map }",
+                    "allow $domain gpu_device chr_file { read write getattr map ioctl }",
+                )
+            // KernelSU and APatch run root as `su`; same rules for it.
+            val all = rules + rules.filter { "magisk" in it && "magisk_tmpfs" !in it }.map { it.replace(" magisk ", " su ") }
+            val lines = all.joinToString("\n") { r -> "pol ${shellQuote(r)}" }
+            return "if command -v magiskpolicy >/dev/null 2>&1; then pol() { magiskpolicy --live \"\$1\" >/dev/null 2>&1 || echo \"skipped: \$1\"; }; " +
+                "elif [ -x /data/adb/ksud ]; then pol() { /data/adb/ksud sepolicy patch \"\$1\" >/dev/null 2>&1 || echo \"skipped: \$1\"; }; " +
+                "else pol() { :; }; echo 'no magiskpolicy: SELinux rules not applied'; fi\n$lines\ntrue"
+        }
 
         private const val GUEST_CJK_FONT = "/usr/share/fonts/android/NotoSansCJK-Regular.ttc"
     }

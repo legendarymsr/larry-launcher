@@ -18,6 +18,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import dev.legendarymsr.larrylauncher.linux.AudioBridge
 import dev.legendarymsr.larrylauncher.linux.Bootstrap
 import dev.legendarymsr.larrylauncher.linux.FILES_COMMAND
+import dev.legendarymsr.larrylauncher.linux.LaunchFailure
+import dev.legendarymsr.larrylauncher.linux.OutputTail
+import dev.legendarymsr.larrylauncher.linux.launchCommand
+import dev.legendarymsr.larrylauncher.linux.launchFailed
+import dev.legendarymsr.larrylauncher.linux.summary
 import dev.legendarymsr.larrylauncher.linux.Gpu
 import dev.legendarymsr.larrylauncher.linux.LinuxApp
 import dev.legendarymsr.larrylauncher.linux.OpenBridge
@@ -545,11 +550,41 @@ class Runtime(
         }
         Log.i(TAG, "launch: $command")
         thread(name = "guest-launch", isDaemon = true) {
-            val code = runCatching { chroot.run("exec $command") { Log.i(TAG, "[${command.take(24)}] $it") } }.getOrElse { -1 }
-            Log.i(TAG, "exited $code: $command")
+            chroot.allowWayland()
+            val tail = OutputTail()
+            val windowsBefore = wm.toplevelsCreated
+            val started = System.currentTimeMillis()
+            val code =
+                runCatching {
+                    chroot.run(launchCommand(command)) {
+                        Log.i(TAG, "[${command.take(24)}] $it")
+                        tail.add(it)
+                    }
+                }.getOrElse {
+                    tail.add(it.message ?: it.toString())
+                    -1
+                }
+            val seconds = (System.currentTimeMillis() - started) / 1000
+            // Some window came up while it ran (another app's could too: good enough to not cry wolf).
+            val sawWindow = wm.toplevelsCreated > windowsBefore
+            Log.i(TAG, "exited $code after ${seconds}s: $command")
+            if (launchFailed(code, seconds, sawWindow)) {
+                val denials = if (code != 0) chroot.recentDenials() else emptyList()
+                val failure = LaunchFailure(command, code, seconds, tail.toList() + denials.map { "selinux: $it" })
+                Log.w(TAG, failure.summary())
+                main.post {
+                    launchFailures.add(0, failure)
+                    while (launchFailures.size > 5) launchFailures.removeAt(launchFailures.lastIndex)
+                    android.widget.Toast.makeText(context, failure.summary(), android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
             onExit()
         }
     }
+
+    /** Linux apps that exited without opening, newest first; shown on the linux panel. */
+    val launchFailures = androidx.compose.runtime.mutableStateListOf<LaunchFailure>()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     companion object {
         private const val TAG = "runtime"

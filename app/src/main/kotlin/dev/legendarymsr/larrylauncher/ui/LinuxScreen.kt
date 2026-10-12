@@ -67,7 +67,10 @@ fun LinuxScreen(
                     }
                 LinuxState.NotInstalled -> InstallOffer(runtime)
                 is LinuxState.Installing, is LinuxState.Failed -> LinuxProgress(s, runtime::retryLinux)
-                LinuxState.Installed -> Installed(runtime)
+                LinuxState.Installed -> {
+                    Installed(runtime)
+                    LaunchFailures(runtime)
+                }
                 LinuxState.Removing -> BasicText("removing linux…", style = Mono.copy(color = Palette.accent))
             }
         }
@@ -247,6 +250,25 @@ internal fun RootPanel(runtime: Runtime) {
                 BasicText(s.message, style = Mono.copy(color = Palette.red, fontSize = TextSize.Small))
                 BracketAction("retry", Palette.accent) { runtime.requestRoot() }
             }
+        }
+    }
+}
+
+/** Linux apps that exited without opening: exit code and the end of their output. */
+@Composable
+private fun LaunchFailures(runtime: Runtime) {
+    val failures = runtime.launchFailures
+    if (failures.isEmpty()) return
+    Spacer(Modifier.height(16.dp))
+    BasicText("apps that didn't open", style = Mono.copy(color = Palette.red, fontSize = TextSize.Item))
+    for (f in failures) {
+        Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth().clip(LauncherStyle.shape(12.dp)).background(Palette.surface).padding(12.dp)) {
+            BasicText("${f.command.take(80)} · exit ${f.code} · ${f.seconds}s", style = Mono.copy(fontSize = TextSize.Small))
+            BasicText(
+                f.output.takeLast(12).joinToString("\n").ifEmpty { "(no output)" },
+                style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small),
+            )
         }
     }
 }
