@@ -124,7 +124,11 @@ private val BINDS = """        Mod+Return { spawn "foot"; }
         Super+R { switch-preset-column-width; }
         Super+F { maximize-column; }
         Super+Shift+F { fullscreen-window; }
-        Super+Shift+E { quit skip-confirmation=true; }"""
+        Super+Shift+E { quit skip-confirmation=true; }
+        Mod+WheelScrollRight cooldown-ms=150 { focus-column-right; }
+        Mod+WheelScrollLeft cooldown-ms=150 { focus-column-left; }
+        Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+        Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }"""
 
 /**
  * The optional Gentoo desktop: real niri, run as a nested Wayland client of the launcher's own

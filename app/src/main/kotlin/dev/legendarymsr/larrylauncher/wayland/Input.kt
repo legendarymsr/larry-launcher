@@ -200,6 +200,7 @@ class Input(
         dy: Float,
         source: Int,
         steps: Int = 0,
+        stepsX: Int = 0,
     ) {
         val s = pointerFocus ?: return
         val time = now()
@@ -209,7 +210,10 @@ class Input(
                 if (p.version >= 5 && steps != 0) p.send(p.event(8).uint(0).int(steps))
                 p.send(p.event(4).uint(time).uint(0).fixed(dy))
             }
-            if (dx != 0f) p.send(p.event(4).uint(time).uint(1).fixed(dx))
+            if (dx != 0f) {
+                if (p.version >= 5 && stepsX != 0) p.send(p.event(8).uint(1).int(stepsX))
+                p.send(p.event(4).uint(time).uint(1).fixed(dx))
+            }
             p.frame()
         }
     }
@@ -219,6 +223,7 @@ class Input(
         val time = now()
         pointersOf(s.client).filter { it.version >= 5 }.forEach { p ->
             p.send(p.event(7).uint(time).uint(0))
+            p.send(p.event(7).uint(time).uint(1))
             p.frame()
         }
     }

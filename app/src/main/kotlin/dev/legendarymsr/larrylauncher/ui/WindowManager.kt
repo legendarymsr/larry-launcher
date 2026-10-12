@@ -167,7 +167,13 @@ class WindowManager : WindowManagerHooks {
         dy: Float,
         source: Int,
         steps: Int = 0,
-    ) = server.postInput { pointerAxis(dx, dy, source, steps) }
+        stepsX: Int = 0,
+    ) = server.postInput { pointerAxis(dx, dy, source, steps, stepsX) }
+
+    fun key(
+        code: Int,
+        pressed: Boolean,
+    ) = server.postInput { key(code, pressed) }
 
     fun wantsTouch(surface: Surface) = synchronized(server) { server.input.wantsTouch(surface) }
 
