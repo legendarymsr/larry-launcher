@@ -11,14 +11,16 @@ fun shellQuote(s: String) = "'" + s.replace("'", "'\\''") + "'"
 fun emergeInstall(
     atoms: Collection<String>,
     sync: Boolean = false,
+    /** --noreplace for installs; a rebuild passes `--oneshot --update --changed-use`. */
+    mode: String = "--noreplace",
 ): String {
     // CONFIG_PROTECT_MASK=/etc/portage: autounmask writes its USE/keyword changes in place instead of as
     // ._cfg files that nothing applies. If emerge still stops, any pending ._cfg files are merged and it
     // retries once. --binpkg-respect-use builds from source where no binary package has the needed USE.
     val emerge =
-        "CONFIG_PROTECT_MASK=/etc/portage emerge --ask=n --noreplace --getbinpkg --quiet-build=y --color=n " +
+        "CONFIG_PROTECT_MASK=/etc/portage emerge --ask=n $mode --getbinpkg --quiet-build=y --color=n " +
             "--autounmask=y --autounmask-write=y --autounmask-continue=y --autounmask-use=y --binpkg-respect-use=y " +
-            atoms.joinToString(" ") { shellQuote(it) }
+            atoms.joinToString(" ") { if (it.startsWith("$")) it else shellQuote(it) }
     return (if (sync) "$PORTAGE_SYNC && " else "") +
         "{ $emerge || { echo 'larrylauncher: applying Portage config changes and retrying once'; $APPLY_PORTAGE_CFG; $emerge; }; } && $CLEAN_PORTAGE_CACHE"
 }

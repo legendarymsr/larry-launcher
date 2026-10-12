@@ -49,6 +49,10 @@ internal fun DesktopModeScreen(
                 if (running) {
                     Spacer(Modifier.height(12.dp))
                     BracketAction("stop niri", Palette.red) { runtime.stopDesktop() }
+                } else if (desktop.lastRun.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    BasicText("niri didn't start", style = Mono.copy(color = Palette.red))
+                    LogTail(desktop.lastRun.takeLast(40), expandedByDefault = true)
                 }
             }
         }

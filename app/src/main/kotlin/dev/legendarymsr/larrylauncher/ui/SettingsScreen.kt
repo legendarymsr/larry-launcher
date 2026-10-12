@@ -92,7 +92,7 @@ fun SettingsScreen(
 
 /** Rootfs updates from a new app version that need the network; they run in the background and show here. */
 @Composable
-private fun SetupUpdates(runtime: Runtime) {
+internal fun SetupUpdates(runtime: Runtime) {
     val state by runtime.bootstrap.updates.collectAsState()
     val failed = state as? JobState.Failed
     val working = state as? JobState.Working

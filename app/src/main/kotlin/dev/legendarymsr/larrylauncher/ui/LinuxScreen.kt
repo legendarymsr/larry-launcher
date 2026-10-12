@@ -69,6 +69,7 @@ fun LinuxScreen(
                 is LinuxState.Installing, is LinuxState.Failed -> LinuxProgress(s, runtime::retryLinux)
                 LinuxState.Installed -> {
                     Installed(runtime)
+                    SetupUpdates(runtime)
                     LaunchFailures(runtime)
                 }
                 LinuxState.Removing -> BasicText("removing linux…", style = Mono.copy(color = Palette.accent))

@@ -490,7 +490,8 @@ class Runtime(
 
     fun startDesktop() {
         niriWindow?.let { return showWindow(it) }
-        launch(desktop.startCommand())
+        desktop.lastRun = emptyList()
+        launch(desktop.startCommand(gpu = chroot.graphicsEnv != dev.legendarymsr.larrylauncher.linux.Gpu.SOFTWARE_ENV), onFailure = { desktop.lastRun = it })
     }
 
     fun stopDesktop() = launch(dev.legendarymsr.larrylauncher.linux.Desktop.STOP_COMMAND)
@@ -542,6 +543,8 @@ class Runtime(
     fun launch(
         command: String,
         onExit: () -> Unit = {},
+        /** Gets the output (and SELinux denials) when the launch counts as failed. */
+        onFailure: ((List<String>) -> Unit)? = null,
     ) {
         if (!linux) {
             linuxWanted = true
@@ -574,6 +577,7 @@ class Runtime(
                 val failure = LaunchFailure(command, code, seconds, tail.toList() + denials.map { "selinux: $it" })
                 Log.w(TAG, failure.summary())
                 main.post {
+                    onFailure?.invoke(listOf("exit ${failure.code} after ${failure.seconds}s") + failure.output)
                     launchFailures.add(0, failure)
                     while (launchFailures.size > 5) launchFailures.removeAt(launchFailures.lastIndex)
                     android.widget.Toast.makeText(context, failure.summary(), android.widget.Toast.LENGTH_LONG).show()

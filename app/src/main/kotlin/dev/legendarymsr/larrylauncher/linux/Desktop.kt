@@ -94,6 +94,7 @@ class Desktop(
     var job by mutableStateOf<JobState>(JobState.Idle)
         private set
 
+    /** /usr/bin/niri as the app sees it; the rootfs is relabelled readable after installs. */
     val installed get() = File(chroot.rootfs, "usr/bin/niri").exists()
 
     suspend fun install(): Boolean =
@@ -107,14 +108,32 @@ class Desktop(
             }
         }
 
-    /** The command that starts niri; seeds the config first if there's none. */
-    fun startCommand(): String {
-        val config = File(chroot.home, ".config/niri/config.kdl")
-        if (!config.exists()) runCatching {
-            config.parentFile?.mkdirs()
-            config.writeText(NIRI_CONFIG)
-        }
-        return "niri"
+    /** Output of the last niri run that ended badly or never showed a window; shown on the desktop panel. */
+    var lastRun by mutableStateOf<List<String>>(emptyList())
+
+    /**
+     * The guest command that starts niri nested: seeds the config as the guest's root (the app
+     * can't write /root), then runs niri with its winit backend (WAYLAND_DISPLAY is set). The
+     * phone's GPU isn't reachable through Mesa here, so unless the GPU option is on, EGL is forced
+     * to llvmpipe on the wayland platform, whose swrast path presents through wl_shm, the only
+     * buffer type the launcher's compositor takes. Logs and backtraces go to the launch output.
+     */
+    fun startCommand(gpu: Boolean): String {
+        val env =
+            listOf("EGL_PLATFORM=wayland", "RUST_BACKTRACE=1", "RUST_LOG=niri=info,smithay=warn", "NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY=1", "XCURSOR_SIZE=24", "LP_NATIVE_VECTOR_WIDTH=128") +
+                if (gpu) emptyList() else listOf("LIBGL_ALWAYS_SOFTWARE=1")
+        // llvmpipe JITs code for the CPU LLVM detects; on some phones that faults (SIGILL, exit 132).
+        // Then niri runs again on softpipe, which interprets instead: slower, but no JIT.
+        val run = "env ${env.joinToString(" ")}"
+        val script =
+            "c=\$HOME/.config/niri/config.kdl; [ -s \"\$c\" ] || { mkdir -p \"\${c%/*}\" && printf '%s' ${shellQuote(NIRI_CONFIG)} > \"\$c\"; }; " +
+                "niri validate -c \"\$c\" 2>&1 | tail -n 5; " +
+                "grep -m3 -E '^(CPU part|Features|CPU architecture)' /proc/cpuinfo; " +
+                (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else
+                    "$run GALLIUM_DRIVER=llvmpipe niri -c \"\$c\" 2>&1; rc=\$?; " +
+                        "[ \$rc -eq 132 ] || exit \$rc; echo 'larrylauncher: niri hit SIGILL on llvmpipe, retrying on softpipe'; " +
+                        "exec $run GALLIUM_DRIVER=softpipe niri -c \"\$c\" 2>&1")
+        return "sh -c " + shellQuote(script)
     }
 
     companion object {

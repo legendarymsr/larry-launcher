@@ -47,4 +47,12 @@ class DefaultSetTest {
         assertTrue(isInstalled(root, "larrylauncher-files"))
         root.deleteRecursively()
     }
+
+    @Test fun useRebuildTargetsChangedUse() {
+        assertTrue("--oneshot --update --changed-use" in USE_REBUILD_SCRIPT)
+        assertTrue("dev-qt/qtbase" in USE_ATOMS)
+        assertTrue(USE_REBUILD_SCRIPT.endsWith("echo $USE_VERSION > $USE_VERSION_FILE"))
+        assertFalse("'\$LL_ATOMS'" in USE_REBUILD_SCRIPT)
+        java.io.File("build/use-rebuild.sh").apply { parentFile.mkdirs() }.writeText(USE_REBUILD_SCRIPT + "\n")
+    }
 }

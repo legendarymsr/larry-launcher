@@ -105,6 +105,35 @@ internal val PACKAGE_USE_SCRIPT =
         "mkdir -p /etc/portage/package.accept_keywords && printf '%s\\n' " +
         PACKAGE_KEYWORDS.joinToString(" ") { shellQuote(it) } + " > /etc/portage/package.accept_keywords/larrylauncher"
 
+/**
+ * Every USE/keyword line the app writes. Its hash is the guest's config version
+ * (/var/lib/larrylauncher/use-version): when an app update changes it, installed packages
+ * whose USE changed (qtbase gaining wayland...) are rebuilt, see [USE_REBUILD_SCRIPT].
+ */
+internal val USE_VERSION: String =
+    java.security.MessageDigest.getInstance("SHA-256")
+        .digest((PACKAGE_USE + PACKAGE_KEYWORDS + DESKTOP_USE_LINES).joinToString("\n").toByteArray())
+        .joinToString("") { "%02x".format(it) }.take(12)
+
+internal const val USE_VERSION_FILE = "/var/lib/larrylauncher/use-version"
+
+/** Package atoms named in the app's USE lines; the rebuild only touches the installed ones. */
+internal val USE_ATOMS = (PACKAGE_USE + DESKTOP_USE_LINES).map { it.substringBefore(' ') }.distinct()
+
+/**
+ * Re-applies the app's Portage config (the desktop's too, once it's installed), then rebuilds
+ * installed packages whose USE changed: `emerge -1u --changed-use` on those atoms with the same
+ * autounmask/binpkg flags as installs. Not all of @world: -u there would also pull every pending upgrade.
+ * Stamps [USE_VERSION] last, so a failure retries.
+ */
+internal val USE_REBUILD_SCRIPT =
+    "$PORTAGE_DIRS_SCRIPT && $DROP_BAD_BINPKGS_SCRIPT && $PACKAGE_USE_SCRIPT && " +
+        "{ [ ! -f /etc/portage/package.use/larrylauncher-desktop ] || printf '%s\\n' $DESKTOP_USE > /etc/portage/package.use/larrylauncher-desktop; } && " +
+        "LL_ATOMS=\$(for a in ${USE_ATOMS.joinToString(" ")}; do portageq has_version / \$a >/dev/null 2>&1 && echo \$a; done; true) && " +
+        "{ [ -z \"\$LL_ATOMS\" ] || { echo \"larrylauncher: rebuilding for changed USE: \"\$LL_ATOMS; " +
+        emergeInstall(listOf("\$LL_ATOMS"), mode = "--oneshot --update --changed-use") + "; }; } && " +
+        "mkdir -p /var/lib/larrylauncher && echo $USE_VERSION > $USE_VERSION_FILE"
+
 /** What the bootstrap installs; the packages screen doesn't offer to remove these. */
 val CORE_PACKAGES = PACKAGES.toSet()
 
@@ -225,6 +254,10 @@ class Bootstrap(
             Step("packages-3", Stage.Packages, "Installing packages", network = true) {
                 guest("$PORTAGE_DIRS_SCRIPT && $DROP_BAD_BINPKGS_SCRIPT && $PACKAGE_USE_SCRIPT && " + emergeInstall(PACKAGES))
             },
+            // Id carries the version so the journal never skips a new one; the guest stamp is the truth.
+            Step("use-$USE_VERSION", Stage.Packages, "Rebuilding for changed USE flags", network = true, isDone = {
+                "use-$USE_VERSION" in journal || runCatching { chroot.hostFile(USE_VERSION_FILE).readText().trim() == USE_VERSION }.getOrDefault(false)
+            }) { guest(USE_REBUILD_SCRIPT) },
             Step("keymap-1", Stage.Packages, "Compiling keymap", network = false, isDone = { chroot.keymap.exists() }) { compileKeymap() },
         )
 
@@ -396,7 +429,10 @@ class Bootstrap(
     ) {
         this.stage = stage
         this.step = step
-        if (journal.setupComplete && _state.value == LinuxState.Installed) return
+        if (journal.setupComplete && _state.value == LinuxState.Installed) {
+            (_updates.value as? JobState.Working)?.let { _updates.value = JobState.Working(it.action, log.toList().takeLast(20)) }
+            return
+        }
         _state.value = LinuxState.Installing(stage, step, progress, log.toList())
     }
 
