@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files hands guest files to Android apps ("open with", "share"); the rootfs lives in files/gentoo,
+     and the root chroot binds /tmp, the runtime dir and the launcher's own data (LauncherData) from beside it. -->
+<paths>
+    <files-path name="guest" path="gentoo/" />
+    <files-path name="tmp" path="tmp/" />
+    <files-path name="xdg" path="xdg/" />
+    <files-path name="larrylauncher" path="larrylauncher/" />
+    <files-path name="widgets" path="widgets/" />
+</paths>

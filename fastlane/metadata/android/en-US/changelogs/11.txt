@@ -1,0 +1,1 @@
+First release: an Android home screen with bundled themes and widgets, and optional Gentoo Linux run as a real chroot through Magisk root, with Portage and the official arm64 binhost. The guest runs as real root.

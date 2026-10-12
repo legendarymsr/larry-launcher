@@ -1,0 +1,70 @@
+Privacy Policy
+
+Effective Date: 10.10.2026
+
+Larry Launcher ("the App") is an Android home screen launcher developed by legendarymsr ("we," "us," or "our"). This Privacy Policy explains how the App handles information.
+
+1. Information We Do Not Collect
+
+The App does not collect, store, or transmit any personal data to our servers. We do not:
+- Require you to create an account or log in.
+- Track your usage with analytics or crash reporting tools.
+- Show ads or use advertising identifiers.
+- Collect device identifiers.
+- Operate any servers that receive your data.
+
+2. Local Data Storage
+
+Your home screen layout, widgets, theme settings and, if you install it, the Linux environment and its files are stored only on your device. Uninstalling the App deletes all of it. Removing Linux in the App's settings deletes the Linux environment and its files.
+
+3. Device Permissions
+
+- Microphone (optional): used only while you hold or tap the microphone button to dictate a prompt. Speech is recognized by your phone's speech recognition service (on the device where the phone supports it), and only the resulting text is passed to the app you are talking to. The App does not record or store audio.
+- Notification access (optional): lets media widgets show and control what is currently playing, and lets widgets you add show your notifications (app name, title and text) and open or dismiss them. Notifications are read on your device, only when a widget on your home screen asks for them, and are not stored or sent to us. A widget you add could send what it shows to a service it contacts; read a widget's file to see what it runs and which addresses it contacts.
+- Uninstalling apps: used only when you choose to uninstall an app from the app drawer. Android asks you to confirm every uninstall.
+- Internet: used to download the content listed in section 4.
+
+4. Third-Party Services
+
+The App connects to the following services. Each request reveals your IP address to that service, which handles it under its own privacy policy.
+
+GitHub (github.com)
+- Downloads the cliamp music player.
+- Privacy Policy: https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
+
+wttr.in (weather widget)
+- The weather widget requests the current weather. wttr.in estimates your approximate location from your IP address.
+
+Widgets
+- Widgets may contact other services to show their content (for example prices, news feeds or radio streams). A widget's file shows what it runs and which addresses it contacts.
+
+Optional Linux environment
+- Only if you choose to install Linux, the App downloads the official Gentoo arm64 stage3 and the Portage tree from Gentoo's servers (distfiles.gentoo.org and its rsync/webrsync mirrors). Packages you install come from Gentoo's official arm64 binary package host (binhost) or, when no binary matches, their source files are downloaded from Gentoo's mirrors and upstream download sites.
+
+Optional coding agents
+- Only if you choose to install a coding agent (for example Claude Code, Codex or OpenCode), it is downloaded from its vendor. The prompts you send to an agent, and the files it works with, are sent to that agent's provider under the provider's own terms and privacy policy. You sign in to each agent with your own account.
+
+We do not share any data with third parties ourselves.
+
+5. Children's Privacy
+
+The App is not intended for children under 13 years of age. We do not knowingly process data from children.
+
+6. GDPR Compliance (European Users)
+
+As the developer is based in Berlin, Germany, we comply with the General Data Protection Regulation (GDPR) where applicable:
+- Local storage: all data the App stores stays on your device and is under your control.
+- Permissions: microphone and notification access are optional and require your explicit consent.
+- Third-party requests: requests to the services in section 4 are made only to provide the features you use.
+
+7. Your Rights
+
+You can:
+- Revoke microphone and notification access at any time in your device settings.
+- Remove Linux and its files in the App's settings.
+- Remove widgets from your home screen.
+- Delete all App data by uninstalling the App.
+
+8. Changes to This Privacy Policy
+
+We may update this Privacy Policy from time to time. Any changes will be posted here with an updated effective date.

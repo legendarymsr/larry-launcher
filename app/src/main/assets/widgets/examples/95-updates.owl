@@ -1,0 +1,29 @@
+widget "updates" {
+  page: 4
+  order: 2
+  size: 3x3
+  minSize: 2x2
+
+  // A pretend @world upgrade against the last synced tree: changes nothing, takes no lock.
+  source pending = cmd("""
+    out=$(emerge -puDN --color=n --quiet @world 2>/dev/null) || { echo error; exit; }
+    echo "$out" | grep -E '^.(ebuild|binary)[^]]*U' | sed 's/^[^]]*] *//'
+  """) every 1h timeout 90s
+  let failed = pending == "error"
+  let list = pending == null || failed ? null : lines(pending).filter(l => l != "").map(l => words(l)[0])
+
+  onTap: terminal("emerge-webrsync && emerge -auDN @world", "updates")
+
+  Column {
+    gap: 2
+    Text { text: "updates"; style: muted }
+    Text {
+      text: failed ? "offline" : list == null ? "…" : "${len(list)}"
+      style: title
+      color: failed || list == null ? muted : len(list) > 0 ? yellow : green
+    }
+    if list != null {
+      Text { text: len(list) == 0 ? "up to date" : join(list.take(4), " "); style: small; maxLines: 2 }
+    }
+  }
+}

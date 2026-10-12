@@ -1,0 +1,30 @@
+Larry Launcher is a keyboard-friendly home screen that brings a tiling-desktop look to Android, and can run a full Gentoo arm64 system next to your phone apps.
+
+THEMES
+Pick from 22 themes: Tokyo Night, Catppuccin, Gruvbox, Nord, Rose Pine, Kanagawa, Everforest and more. Each theme colors the whole launcher and the Linux apps; add your own pictures as wallpapers.
+
+HOME SCREEN AND WIDGETS
+• Pages of widgets and pinned apps on a grid
+• Built-in widgets for the date and weather
+• Bundled example widgets, written in a small open language you can edit yourself
+• An app drawer with search for all your Android apps
+
+GENTOO LINUX (OPTIONAL)
+The launcher works without it. If you want it, Larry Launcher downloads the official Gentoo arm64 stage3 and runs it in a chroot. This needs a Magisk-rooted phone, and the guest runs as real root.
+• Linux apps open as their own windows, each with its own card in Recents
+• Larry Launcher is the Wayland compositor, so graphical apps like foot work
+• Search and install packages with Portage, from Gentoo's binhost first
+• Terminal widgets that run commands on your home screen
+• Files, a file manager for the Linux home folder
+• Your theme is applied to the Linux apps too
+
+CODING AGENTS
+With Linux installed, the prompt bar at the bottom of the home screen sends a prompt to a coding agent such as Claude Code, Codex, Copilot or opencode, which opens in a terminal. Hold the mic to dictate; speech is recognized by Android, so only the text reaches Linux.
+
+KEYBOARD SHORTCUTS
+With a hardware keyboard: Super+Enter opens a terminal, Super+Space the drawer, Super+A the agent prompt, Super+1 to 9 switch pages and Super+W closes a window.
+
+PRIVACY
+No account, no ads, no tracking. Larry Launcher only connects to the internet for weather, what widgets you add fetch and, if you choose, Linux and its packages.
+
+Larry Launcher is an independent project and is not affiliated with Gentoo.
