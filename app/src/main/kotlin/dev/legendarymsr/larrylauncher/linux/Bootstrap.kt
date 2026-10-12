@@ -55,6 +55,32 @@ internal val PACKAGE_USE =
     )
 
 /** Rewritten by configure and again before every package install, so a retry re-applies it. */
+/**
+ * Portage's keyring, made by getuto as the guest's root. gpg refuses a homedir that isn't
+ * owned by the caller with mode 0700 ("unsafe ownership"), so force that after getuto,
+ * also fixing a keyring an older build left with the app's uid.
+ */
+internal const val GETUTO_SCRIPT =
+    "getuto && chown -R root:root /etc/portage/gnupg && chmod 700 /etc/portage/gnupg"
+
+/** Portage's build/temp dirs with the owners and modes it expects, since /var/tmp may have come out wrong. */
+internal const val PORTAGE_DIRS_SCRIPT =
+    "mkdir -p /var/tmp/portage /var/cache/binpkgs && chmod 1777 /var/tmp && " +
+        "chown portage:portage /var/tmp/portage && chmod 775 /var/tmp/portage && " +
+        "{ [ ! -d /etc/portage/gnupg ] || { chown -R root:root /etc/portage/gnupg && chmod 700 /etc/portage/gnupg; }; }"
+
+/**
+ * Deletes downloaded binpkgs whose signature didn't verify (a failed earlier run leaves them
+ * cached and Portage would reject them again instead of re-fetching). Verification stays on:
+ * these get downloaded and checked again.
+ */
+internal const val DROP_BAD_BINPKGS_SCRIPT =
+    "{ for f in \$(find /var/cache/binpkgs -name '*.gpkg.tar' -newer /var/lib/larrylauncher/stage3.DIGESTS 2>/dev/null); do " +
+        "tar -tf \"\$f\" >/dev/null 2>&1 || rm -f \"\$f\"; done; " +
+        "[ ! -f /var/lib/larrylauncher/bad-binpkgs ] || xargs -r rm -f < /var/lib/larrylauncher/bad-binpkgs; rm -f /var/lib/larrylauncher/bad-binpkgs; true; }"
+
+private val BAD_BINPKG = Regex("""Invalid binary package:?\s*'?(/var/cache/binpkgs/[^'\s]+)""")
+
 internal val PACKAGE_USE_SCRIPT =
     "mkdir -p /etc/portage/package.use && rm -f /etc/portage/package.use/zz-autounmask && printf '%s\\n' " +
         PACKAGE_USE.joinToString(" ") { shellQuote(it) } + " > /etc/portage/package.use/larrylauncher"
@@ -175,8 +201,10 @@ class Bootstrap(
                 guest(configureScript())
             },
             Step("sync-1", Stage.Configure, "Fetching the Portage tree", network = true) { guest("emerge-webrsync") },
-            Step("getuto-1", Stage.Configure, "Trusting the binhost's key", network = true) { guest("getuto") },
-            Step("packages-2", Stage.Packages, "Installing packages", network = true) { guest("$PACKAGE_USE_SCRIPT && " + emergeInstall(PACKAGES)) },
+            Step("getuto-2", Stage.Configure, "Trusting the binhost's key", network = true) { guest(GETUTO_SCRIPT) },
+            Step("packages-3", Stage.Packages, "Installing packages", network = true) {
+                guest("$PORTAGE_DIRS_SCRIPT && $DROP_BAD_BINPKGS_SCRIPT && $PACKAGE_USE_SCRIPT && " + emergeInstall(PACKAGES))
+            },
             Step("keymap-1", Stage.Packages, "Compiling keymap", network = false, isDone = { chroot.keymap.exists() }) { compileKeymap() },
         )
 
@@ -533,6 +561,16 @@ class Bootstrap(
         writeAtomically(chroot.keymap, chroot.hostFile("/tmp/keymap.xkb").readBytes() + 0)
     }
 
+    /** Paths from Portage's "Invalid binary package" errors, deleted before the next emerge so they're re-fetched. */
+    private fun rememberBadBinpkgs(lines: List<String>) {
+        val bad = lines.mapNotNull { BAD_BINPKG.find(it)?.groupValues?.get(1) }.filter { it.startsWith("/var/cache/binpkgs/") }.distinct()
+        if (bad.isEmpty()) return
+        runCatching {
+            val f = chroot.hostFile("/var/lib/larrylauncher/bad-binpkgs")
+            chroot.rootShell("mkdir -p ${shellQuote(f.parent)} && printf '%s\\n' ${bad.joinToString(" ") { shellQuote(it) }} >> ${shellQuote(f.path)}")
+        }.onFailure { Log.w(TAG, "remembering bad binpkgs", it) }
+    }
+
     private fun guest(script: String) {
         log.add("$ $script")
         val out = OutputTail(20)
@@ -544,6 +582,7 @@ class Bootstrap(
         if (code == Chroot.MOUNT_FAILED) {
             throw GuestMountException(out.toList().filter { it.startsWith("larrylauncher: mount") }.ifEmpty { out.toList() }.joinToString("\n"))
         }
+        if (code != 0) rememberBadBinpkgs(out.toList() + log.toList())
         check(code == 0) { "`$script` failed (exit $code):\n" + out.toList().takeLast(8).joinToString("\n") }
     }
 

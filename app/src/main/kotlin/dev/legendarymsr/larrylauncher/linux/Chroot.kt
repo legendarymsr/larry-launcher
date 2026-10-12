@@ -214,7 +214,14 @@ class Chroot(
                 "m -t proc proc $r/proc",
                 "m -t sysfs sysfs $r/sys",
             ) + (if (cjkFont.isFile) listOf(bind(cjkFont.path, GUEST_CJK_FONT, file = true)) else emptyList()) +
-                binds.map { (guest, host) -> bind(host.path, guest) }
+                binds.map { (guest, host) -> bind(host.path, guest) } +
+                listOf(
+                    // The bound /tmp is an app dir (0700, app uid): Portage drops to its own user
+                    // (gpg verifying binpkgs, builds), which then can't create files there.
+                    // Sticky world-writable like a real /tmp; the app keeps ownership so it can clean up.
+                    "chmod 1777 ${shellQuote(tmpDir.path)}",
+                    "mkdir -p $r/var/tmp && chmod 1777 $r/var/tmp",
+                )
         val env =
             listOf(
                 "HOME=$GUEST_HOME",
