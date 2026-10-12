@@ -53,7 +53,7 @@ class Chroot(
     private val cjkFont = File("/system/fonts/NotoSansCJK-Regular.ttc")
 
     /** Host directories bound over guest paths by [command]. Never all of /data: only these. */
-    private val binds = listOf("/tmp" to tmpDir, "/dev/shm" to tmpDir, GUEST_RUNTIME_DIR to runtimeDir) + dataBinds
+    private val binds = listOf("/tmp" to tmpDir, GUEST_RUNTIME_DIR to runtimeDir) + dataBinds
 
     private val _root = MutableStateFlow<RootState>(RootState.Unknown)
 
@@ -151,6 +151,18 @@ class Chroot(
             ?.getOrNull(2)
             ?.takeIf { it.matches(SAFE_TYPE) }
 
+    /**
+     * The SELinux context the guest's /dev/shm is mounted with: app_data_file at the app's own
+     * MLS level (s0:cNNN,...). wl_shm buffers foot and friends create there are then files the
+     * launcher (untrusted_app with categories) may map; plain tmpfs:s0 fails the MLS check.
+     */
+    internal fun shmContext(): String? {
+        val parts = runCatching { File("/proc/self/attr/current").readText().trim('\u0000', ' ', '\n') }.getOrNull()?.split(':') ?: return null
+        if (parts.size < 4) return null
+        val level = parts.drop(3).joinToString(":")
+        return "u:object_r:app_data_file:$level".takeIf { it.matches(SAFE_CONTEXT) }
+    }
+
     @Volatile private var waylandAllowed = false
 
     /**
@@ -218,6 +230,26 @@ class Chroot(
         return "$point && m -o bind ${shellQuote(host)} $target"
     }
 
+    /**
+     * A fresh tmpfs over the guest's /dev/shm (not the host's, which rbind /dev would share),
+     * labelled with [shmContext] so the launcher can use the shm fds Wayland clients pass it.
+     * If the kernel refuses the context, falls back to a plain tmpfs and says so.
+     */
+    private fun shmMount(): List<String> {
+        val shm = shellQuote(rootfs.path + "/dev/shm")
+        val ctx = shmContext()
+        val plain = "m -t tmpfs -o mode=1777,nosuid,nodev tmpfs $shm"
+        return listOf(
+            "mkdir -p $shm",
+            if (ctx == null) {
+                plain
+            } else {
+                "\$MOUNT -t tmpfs -o ${shellQuote("mode=1777,nosuid,nodev,context=\"$ctx\"")} tmpfs $shm 2>/dev/null || " +
+                    "{ echo 'larrylauncher: /dev/shm without app SELinux context'; $plain; }"
+            },
+        )
+    }
+
     /** Kills every process whose root is the rootfs: each guest process, whatever its group or session. */
     private val killScript =
         "for p in /proc/[0-9]*; do [ \"\$(readlink \$p/root 2>/dev/null)\" = ${shellQuote(rootfs.path)} ] && kill -9 \${p#/proc/} 2>/dev/null; done; true"
@@ -248,6 +280,7 @@ class Chroot(
                 "m -t sysfs sysfs $r/sys",
             ) + (if (cjkFont.isFile) listOf(bind(cjkFont.path, GUEST_CJK_FONT, file = true)) else emptyList()) +
                 binds.map { (guest, host) -> bind(host.path, guest) } +
+                shmMount() +
                 listOf(
                     // The bound /tmp is an app dir (0700, app uid): Portage drops to its own user
                     // (gpg verifying binpkgs, builds), which then can't create files there.
@@ -345,6 +378,8 @@ class Chroot(
 
         private val SAFE_TYPE = Regex("[a-z0-9_]+")
 
+        private val SAFE_CONTEXT = Regex("u:object_r:app_data_file:s0(:c[0-9]+(,c[0-9]+)*)?")
+
         /**
          * The magiskpolicy (or KernelSU ksud) script that lets [domain], the launcher's own domain,
          * serve Wayland to root guest processes. One rule per call: a type this policy lacks only fails its line.
@@ -357,15 +392,19 @@ class Chroot(
                     "allow $domain magisk unix_stream_socket { read write getattr getopt setopt shutdown accept }",
                     "allow $domain magisk fd use",
                     "allow $domain magisk file { read write getattr map }",
-                    "allow $domain tmpfs file { read write getattr map }",
+                    "allow $domain tmpfs file { read write getattr map open }",
                     "allow $domain appdomain_tmpfs file { read write getattr map }",
                     "allow $domain magisk_tmpfs file { read write getattr map }",
                     "allow $domain app_data_file file { read write getattr map }",
                     "allow $domain dmabuf_system_heap_device chr_file { read write getattr map }",
                     "allow $domain gpu_device chr_file { read write getattr map ioctl }",
                 )
+            // MLS: files at s0 with no categories fail the app's mlsconstrain even when allowed;
+            // trusted object types skip that check (the shm label above is the main fix).
+            val mls = listOf("tmpfs", "appdomain_tmpfs", "magisk_tmpfs").map { "typeattribute $it mlstrustedobject" }
+            val rulesAll = rules + mls
             // KernelSU and APatch run root as `su`; same rules for it.
-            val all = rules + rules.filter { "magisk" in it && "magisk_tmpfs" !in it }.map { it.replace(" magisk ", " su ") }
+            val all = rulesAll + rules.filter { "magisk" in it && "magisk_tmpfs" !in it }.map { it.replace(" magisk ", " su ") }
             val lines = all.joinToString("\n") { r -> "pol ${shellQuote(r)}" }
             return "if command -v magiskpolicy >/dev/null 2>&1; then pol() { magiskpolicy --live \"\$1\" >/dev/null 2>&1 || echo \"skipped: \$1\"; }; " +
                 "elif [ -x /data/adb/ksud ]; then pol() { /data/adb/ksud sepolicy patch \"\$1\" >/dev/null 2>&1 || echo \"skipped: \$1\"; }; " +

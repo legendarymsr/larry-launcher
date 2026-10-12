@@ -71,6 +71,8 @@ class LaunchReportTest {
         assertTrue(rules.contains("allow untrusted_app_32 magisk fd use"))
         assertTrue(rules.contains("allow magisk untrusted_app_32 unix_stream_socket { connectto read write getattr getopt setopt shutdown }"))
         assertTrue(rules.contains("allow untrusted_app_32 su fd use"))
+        assertTrue(rules.contains("typeattribute tmpfs mlstrustedobject"))
+        assertTrue(rules.contains("allow untrusted_app_32 tmpfs file { read write getattr map open }"))
         assertTrue(out.contains("skipped: allow untrusted_app_32 magisk_tmpfs"))
     }
 
