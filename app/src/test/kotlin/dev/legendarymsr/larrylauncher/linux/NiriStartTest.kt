@@ -9,11 +9,17 @@ import java.nio.file.Files
 
 class NiriStartTest {
     @Test
-    fun softwareRunMasksCpuinfoAndUsesLlvmpipeOnly() {
+    fun softwareRunUsesSoftpipeAndMasksOnlyForLlvmMesa() {
         val cmd = niriStartCommand(gpu = false)
-        assertTrue(cmd.contains("unshare -m"))
-        assertTrue(cmd.contains("GALLIUM_DRIVER=llvmpipe"))
-        assertFalse(cmd.contains("softpipe"))
+        assertTrue(cmd.contains("unshare -m --propagation unchanged"))
+        assertTrue(cmd.contains("GALLIUM_DRIVER=softpipe"))
+        assertTrue(cmd.contains("media-libs/mesa[llvm]"))
+        assertFalse(niriStartCommand(gpu = true).contains("softpipe"))
+    }
+
+    @Test
+    fun mesaIsBuiltWithoutLlvm() {
+        assertTrue(DESKTOP_USE_LINES.any { it.startsWith("media-libs/mesa ") && " -llvm " in it && "-lavapipe" in it })
     }
 
     /** Runs the real command with a stub niri: it must still start niri when the mount isn't allowed. */
@@ -31,7 +37,7 @@ class NiriStartTest {
         val proc = p.start()
         val out = proc.inputStream.bufferedReader().readText()
         assertEquals(out, 0, proc.waitFor())
-        assertTrue(out, out.contains("STUB llvmpipe 1 wayland"))
+        assertTrue(out, out.contains("STUB softpipe 1 wayland"))
         assertTrue(File(home, ".config/niri/config.kdl").length() > 0)
     }
 }

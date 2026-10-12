@@ -150,7 +150,7 @@ class Gpu(
         private val DEVICE_NAME = Regex("""deviceName\s*=\s*(.+)""")
 
         /** Today's default: Mesa renders on the CPU (llvmpipe). */
-        val SOFTWARE_ENV = listOf("LIBGL_ALWAYS_SOFTWARE=1")
+        val SOFTWARE_ENV = SOFTWARE_GL_ENV
 
         /**
          * Vulkan only sees the PanVK driver, and presents through wl_shm; OpenGL is zink on it.

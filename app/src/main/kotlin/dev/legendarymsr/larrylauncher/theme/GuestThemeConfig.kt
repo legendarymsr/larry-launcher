@@ -80,6 +80,12 @@ class GuestThemeConfig(
         }
 
         seed(".config/foot/foot.ini") { FOOT_INI }
+        // Software GL for niri/GL apps started from a login shell in foot (GPU option off).
+        files.add(Managed.text(File(chroot.rootfs, "etc/profile.d/99larrylauncher-gl.sh"), Policy.Owned) {
+            if (chroot.graphicsEnv == dev.legendarymsr.larrylauncher.linux.Gpu.SOFTWARE_ENV)
+                dev.legendarymsr.larrylauncher.linux.SOFTWARE_GL_ENV.joinToString("") { "export $it\n" }
+            else "# GPU option on: no software GL override\n"
+        })
         // The bash setup (aliases, starship, zoxide, fzf) reads everything from $THEMES_PATH.
         seed(".bashrc") { BASHRC }
         File(themesDir, "etc/fastfetch/config.jsonc").takeIf { it.isFile }?.let { src ->
@@ -210,6 +216,8 @@ class GuestThemeConfig(
             term=xterm-256color
             include=${TerminalFont.PATH}
             pad=8x8
+            # Size by the integer wl_output scale, not the panel's ~400 dpi (which made text huge).
+            dpi-aware=no
             workers=0
             # Copy on select: on a phone a selection is a deliberate long press, and Android shows what was copied.
             selection-target=both

@@ -115,6 +115,15 @@ class Surface(
 
     private var enteredOutput = false
 
+    init {
+        // wl_surface v6: tell the client our integer scale before its first frame, so foot renders
+        // crisp at that scale from the start instead of at 1 and getting upscaled.
+        if (version >= 6) {
+            send(event(2).int(client.server.output.scale))
+            send(event(3).uint(0))
+        }
+    }
+
     override fun request(
         opcode: Int,
         args: Args,
@@ -131,6 +140,7 @@ class Surface(
             6 -> commit()
             7 -> Unit // buffer transform
             8 -> pendingScale = args.int().coerceIn(1, 4)
+            10 -> Unit // offset (v5): ignored
             9 -> pendingBufferDamage += intArrayOf(args.int(), args.int(), args.int(), args.int())
         }
     }

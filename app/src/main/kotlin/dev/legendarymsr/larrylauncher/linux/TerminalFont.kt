@@ -151,7 +151,7 @@ class TerminalFont(
     fun write() {
         if (density == 0f) return
         size = pointSize(density, fontScale, scale, text.em)
-        val content = "[main]\nfont=$family:size=${format(size)}\n"
+        val content = "[main]\nfont=$family:size=${format(size)}\ndpi-aware=no\n"
         val file = File(chroot.home, PATH.removePrefix("~/"))
         if (content == written && file.isFile) return
         written = content

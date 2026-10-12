@@ -20,7 +20,9 @@ internal val DESKTOP_USE_LINES =
     listOf(
         "gui-wm/niri -systemd -screencast dbus",
         "virtual/rust rustfmt",
-        "media-libs/mesa X wayland vulkan llvm opengl",
+        // -llvm: Gentoo's mesa then builds gallium softpipe instead of llvmpipe, whose JIT emitted
+        // instructions (SVE2) phone kernels disable (niri SIGILL). Compiles from source; lavapipe needs llvm.
+        "media-libs/mesa X wayland vulkan -llvm opengl VIDEO_CARDS: -lavapipe",
         "media-libs/libglvnd X",
         "media-libs/freetype harfbuzz png",
         "media-libs/harfbuzz glib truetype",
@@ -125,28 +127,33 @@ class Desktop(
     }
 }
 
+/** Guest-wide software GL env, so niri (or any GL app) run from foot uses softpipe too. */
+internal val SOFTWARE_GL_ENV = listOf("LIBGL_ALWAYS_SOFTWARE=1", "GALLIUM_DRIVER=softpipe", "EGL_PLATFORM=wayland")
+
+/** util-linux unshare makes / private by default, which fails in the chroot (/ isn't a mount point). */
+internal const val UNSHARE_MOUNT = "unshare -m --propagation unchanged"
+
 internal fun niriStartCommand(gpu: Boolean): String {
     val env =
         listOf("EGL_PLATFORM=wayland", "RUST_BACKTRACE=1", "RUST_LOG=niri=info,smithay=warn", "NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY=1", "XCURSOR_SIZE=24", "LP_NATIVE_VECTOR_WIDTH=128") +
             if (gpu) emptyList() else listOf("LIBGL_ALWAYS_SOFTWARE=1")
-    // llvmpipe JITs for the CPU LLVM names from /proc/cpuinfo's "CPU part". On arm64 Mesa passes
-    // no feature list, so that name alone decides: newer Cortex parts (X3/A715/A510...) imply SVE2,
-    // which Qualcomm and Android kernels turn off, so the JIT'd code dies with SIGILL. niri gets a
-    // private mount namespace where /proc/cpuinfo has no CPU implementer/part lines: LLVM then
-    // returns "generic" (plain armv8-a + NEON, which every phone has). Gentoo's mesa[llvm] has no
-    // softpipe (the ebuild builds one or the other), so there is no non-JIT fallback to retry on.
     val run = "env ${env.joinToString(" ")}"
-    val niri = "$run GALLIUM_DRIVER=llvmpipe niri -c \"\$c\""
+    // mesa is built -llvm now: softpipe, no JIT. An install still on the old mesa[llvm] (rebuild
+    // pending) only has llvmpipe; then niri gets a private mount ns whose /proc/cpuinfo lacks the
+    // CPU part lines, so LLVM JITs for generic armv8-a instead of an SVE2 core.
+    val llvmNiri = "$run GALLIUM_DRIVER=llvmpipe niri -c \"\$c\""
     val masked =
         "m=/tmp/.larrylauncher-cpuinfo; grep -v -E '^CPU (implementer|part|variant|revision)' /proc/cpuinfo > \"\$m\"; " +
-            "if unshare -m true 2>/dev/null; then exec unshare -m sh -c 'mount --bind \"\$0\" /proc/cpuinfo && " +
+            "if $UNSHARE_MOUNT true 2>/dev/null; then exec $UNSHARE_MOUNT sh -c 'mount --bind \"\$0\" /proc/cpuinfo && " +
             "echo \"larrylauncher: cpuinfo masked, LLVM CPU: generic\" || echo \"larrylauncher: could not mask cpuinfo, llvmpipe may SIGILL\"; " +
-            "exec \"\$@\"' \"\$m\" $niri; fi; echo 'larrylauncher: no mount namespace, llvmpipe may SIGILL'; exec $niri"
+            "exec \"\$@\"' \"\$m\" $llvmNiri; fi; echo 'larrylauncher: no mount namespace, llvmpipe may SIGILL'; exec $llvmNiri"
+    val software =
+        "if portageq has_version / 'media-libs/mesa[llvm]' >/dev/null 2>&1; then echo 'larrylauncher: mesa still has llvm (rebuild pending), llvmpipe'; $masked; " +
+            "else echo 'larrylauncher: softpipe'; exec $run GALLIUM_DRIVER=softpipe niri -c \"\$c\"; fi"
     val script =
         "c=\$HOME/.config/niri/config.kdl; [ -s \"\$c\" ] || { mkdir -p \"\${c%/*}\" && printf '%s' ${shellQuote(NIRI_CONFIG)} > \"\$c\"; }; " +
             "niri validate -c \"\$c\" 2>&1 | tail -n 5; " +
-            "grep -m3 -E '^(CPU part|Features|CPU architecture)' /proc/cpuinfo; " +
-            (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else
-                "exec 2>&1; $masked")
+            (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else "exec 2>&1; $software")
     return "sh -c " + shellQuote(script)
 }
+

@@ -41,7 +41,7 @@ class WaylandServer(
 ) {
     val globals =
         listOf(
-            Global("wl_compositor", 4, ::CompositorResource),
+            Global("wl_compositor", 6, ::CompositorResource),
             Global("wl_subcompositor", 1, ::SubcompositorResource),
             Global("wl_shm", 1, ::ShmResource),
             Global("wl_output", 3, ::OutputResource),
