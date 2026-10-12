@@ -49,6 +49,23 @@ private val MAKE_CONF =
     EMERGE_DEFAULT_OPTS="--getbinpkg --with-bdeps=n"
     """.trimIndent()
 
+/**
+ * USE matching the official arm64 binhost so its packages are used as-is (libpulse is built
+ * with X and dbus there, and pulseaudio-daemon needs libpulse[X]). libxkbcommon adds tools for
+ * xkbcli (the keymap step); that one small package builds from source.
+ */
+private val PACKAGE_USE =
+    listOf(
+        "x11-libs/libxkbcommon X tools",
+        "media-libs/libpulse X dbus",
+        "media-sound/pulseaudio-daemon X dbus",
+    )
+
+/** Rewritten by configure and again before every package install, so a retry re-applies it. */
+internal val PACKAGE_USE_SCRIPT =
+    "mkdir -p /etc/portage/package.use && printf '%s\\n' " +
+        PACKAGE_USE.joinToString(" ") { shellQuote(it) } + " > /etc/portage/package.use/larrylauncher"
+
 /** What the bootstrap installs; the packages screen doesn't offer to remove these. */
 val CORE_PACKAGES = PACKAGES.toSet()
 
@@ -160,7 +177,7 @@ class Bootstrap(
             },
             Step("sync-1", Stage.Configure, "Fetching the Portage tree", network = true) { guest("emerge-webrsync") },
             Step("getuto-1", Stage.Configure, "Trusting the binhost's key", network = true) { guest("getuto") },
-            Step("packages-1", Stage.Packages, "Installing packages", network = true) { guest(emergeInstall(PACKAGES)) },
+            Step("packages-1", Stage.Packages, "Installing packages", network = true) { guest("$PACKAGE_USE_SCRIPT && " + emergeInstall(PACKAGES)) },
             Step("keymap-1", Stage.Packages, "Compiling keymap", network = false, isDone = { chroot.keymap.exists() }) { compileKeymap() },
             Step("cliamp-$CLIAMP_VERSION", Stage.Packages, "Installing cliamp", network = true) { installCliamp() },
         )
@@ -516,8 +533,7 @@ class Bootstrap(
             "echo 'LANG=C.UTF-8' > /etc/locale.conf",
             "mkdir -p /etc/portage/binrepos.conf /etc/portage/package.use",
             "printf '[gentoobinhost]\\npriority = 9999\\nsync-uri = $BINHOST\\n' > /etc/portage/binrepos.conf/gentoobinhost.conf",
-            // xkbcli, for the keymap step.
-            "echo 'x11-libs/libxkbcommon tools' > /etc/portage/package.use/larrylauncher",
+            PACKAGE_USE_SCRIPT,
             "sed -i '/^# larrylauncher\$/,\$d' /etc/portage/make.conf",
             "printf '%s\\n' ${shellQuote(MAKE_CONF)} >> /etc/portage/make.conf",
         ).joinToString(" && ")

@@ -12,7 +12,7 @@ fun emergeInstall(
     atoms: Collection<String>,
     sync: Boolean = false,
 ) = (if (sync) "$PORTAGE_SYNC && " else "") +
-    "emerge --ask=n --noreplace --getbinpkg --quiet-build=y --color=n ${atoms.joinToString(" ") { shellQuote(it) }} && $CLEAN_PORTAGE_CACHE"
+    "emerge --ask=n --noreplace --getbinpkg --quiet-build=y --color=n --autounmask=y --autounmask-write=y --autounmask-continue=y --autounmask-use=y --binpkg-respect-use=y ${atoms.joinToString(" ") { shellQuote(it) }} && $CLEAN_PORTAGE_CACHE"
 
 /** Syncs the ebuild tree; emerge-webrsync if rsync isn't reachable (it often isn't on mobile data). */
 const val PORTAGE_SYNC = "{ emaint sync -a || emerge-webrsync; }"
