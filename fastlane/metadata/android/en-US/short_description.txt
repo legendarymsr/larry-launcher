@@ -1,1 +1,1 @@
-themes and widgets on your home screen, with optional Gentoo Linux
+niri-like scrolling home for Android, with optional Gentoo Linux

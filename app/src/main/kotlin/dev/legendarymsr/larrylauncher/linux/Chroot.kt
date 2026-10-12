@@ -223,12 +223,8 @@ class Chroot(
                 // Android's zone name (e.g. Europe/Berlin); the guest otherwise runs on UTC.
                 "TZ=${java.util.TimeZone.getDefault().id}",
                 "TERM=xterm-256color",
-                // mise-installed tools (coding agents, node) live in the last two.
+                // mise-installed tools (node, say) live in the last two.
                 "PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin:/root/.local/bin:/root/.local/share/mise/shims",
-                // Coding agents come from mise and update with the system (SystemUpdates).
-                "DISABLE_AUTOUPDATER=1",
-                "OPENCODE_DISABLE_AUTOUPDATE=1",
-                "GROK_DISABLE_AUTOUPDATER=1",
                 "BROWSER=xdg-open",
                 // nano is in every stage3.
                 "EDITOR=nano",

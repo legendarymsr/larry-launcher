@@ -317,19 +317,6 @@ class LangTest {
         assertTrue(compileError("widget \"t\" {\nsource r = stream('tail -f x') status\nText { text: r }\n}").contains("status only works on cmd"))
     }
 
-    @Test fun bundledWidgetsCompile() {
-        val dir = java.io.File("../app/src/main/assets/widgets")
-        val files = dir.walk().filter { it.extension == "owl" }.toList()
-        assertTrue("no widgets found in ${dir.absolutePath}", files.size > 5)
-        for (f in files) {
-            try {
-                Compiler.compile(f.readText())
-            } catch (e: CompileError) {
-                fail("${f.name}: ${Source(f.readText()).format(e)}")
-            }
-        }
-    }
-
     @Test fun needsLinux() {
         fun needs(src: String) = Compiler.compile("widget {\n$src\n}").needsLinux
         assertEquals(false, needs("source w = http(\"https://x.test\") json\nsource now = clock every 1m\nsource b = android.battery\nText { text: w.a }\nonTap: url(\"https://x.test\")"))
@@ -339,11 +326,7 @@ class LangTest {
         // Without Linux, tapping app(...) or terminal(...) offers to install it instead.
         assertEquals(false, needs("onTap: app(\"btop\")\nText { text: \"x\" }"))
         assertEquals(true, needs("requires { portage: [\"app-misc/jq\"] }\nText { text: \"x\" }"))
-        val dir = java.io.File("../app/src/main/assets/widgets")
-        fun bundled(name: String) = Compiler.compile(java.io.File(dir, name).readText()).needsLinux
-        assertEquals(false, bundled("10-today.owl"))
-        assertEquals(false, bundled("20-fetch.owl"))
-        assertEquals(true, bundled("45-terminal.owl"))
+
     }
 
     @Test fun persistOnStateAndHistory() {

@@ -27,13 +27,8 @@ class AppSearchTest {
         assertTrue(opensApp("claude code"))
     }
 
-    @Test fun sentencesGoToTheAgent() {
-        assertFalse(opensApp("fix my wifi"))
-        assertFalse(opensApp("why is the build failing"))
-    }
-
     @Test fun weakMatchesShowButDontOpen() {
-        // A subsequence still lists Firefox, but Enter asks the agent.
+        // A subsequence still lists Firefox, but it's a weak match.
         assertEquals("Firefox", top("ffx")?.first)
         assertFalse(opensApp("ffx"))
     }

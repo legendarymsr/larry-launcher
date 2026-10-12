@@ -29,13 +29,10 @@ private val CURATED =
         "larrylauncher-files" to entry("Files", FILES_COMMAND, terminal = false),
         "micro" to entry("Editor", "micro", icon = "micro"),
         "lazygit" to entry("Lazygit", "lazygit"),
-        "cliamp" to entry("Cliamp", "cliamp", icon = bundledIcon("cliamp")),
-        "fastfetch" to entry("Fastfetch", "bash -c \"fastfetch; exec bash\"", icon = bundledIcon("fastfetch")),
     )
 
 /**
- * Entries packages bring along that make no sense on a phone: avahi's browsers (a
- * pulseaudio dependency), foot's server/client pair, and keyboard-only editors.
+ * Entries packages bring along that make no sense on a phone: avahi's browsers, foot's server/client pair, and keyboard-only editors.
  * They stay installed; the drawer just doesn't list them.
  */
 private val HIDDEN = listOf("avahi-discover", "bssh", "bvnc", "footclient", "foot-server", "vim", "nvim", "yazi")

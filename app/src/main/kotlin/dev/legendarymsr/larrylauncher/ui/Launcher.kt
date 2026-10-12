@@ -87,8 +87,7 @@ private fun DesktopScreen(
             state.linuxOpen -> state.linuxOpen = false
             state.licensesOpen -> state.licensesOpen = false
             state.gesturesOpen -> state.gesturesOpen = false
-            state.agentsOpen -> state.agentsOpen = false
-            state.storeOpen -> state.storeOpen = false
+            state.desktopOpen -> state.desktopOpen = false
             state.styleOpen -> state.styleOpen = false
             state.packagesOpen -> state.packagesOpen = false
             state.settingsOpen -> state.settingsOpen = false
@@ -116,10 +115,9 @@ private fun DesktopScreen(
     val covered = remember(state) { { state.homeCovered || runtime.widgets.openScreen != null } }
     CompositionLocalProvider(LocalHomeCovered provides covered) {
         Column(Modifier.fillMaxSize().safePadding()) {
-            HomeScreen(runtime, state, Modifier.weight(1f))
+            NiriHome(runtime, state, Modifier.weight(1f))
         }
     }
-    HomeMenu(runtime, state)
 
     // Only whether it shows is read here; the animation itself runs in the layer, without recomposing.
     val panelShown by remember(state) { derivedStateOf { state.drawer.value > 0.01f } }
@@ -143,6 +141,7 @@ private fun DesktopScreen(
             AppHandlers(
                 launch = ::launch,
                 // Pins to the page that's showing; the panel closes so the new tile is visible.
+                // Pins to the workspace that's showing, as a new column at the end of its strip.
                 pin = { hit ->
                     when (hit) {
                         is AppHit.Linux -> runtime.widgets.shortcuts.addLinux(hit.app, state.currentPage)
@@ -172,49 +171,45 @@ private fun DesktopScreen(
     }
     // The bar and the panel above it; the keyboard lifts both. Nothing here takes touches while the panel is closed,
     // except the bar. A phone's landscape folds them into a rail beside the grid, and unfolds them over it, centered.
-    val side = homeSide()
-    if (side != null && !panelShown) {
-        if (runtime.terminals.active == null) {
-            SideRail(runtime, state, handlers, side, Modifier.fillMaxSize().safePadding())
-        }
-    } else {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .safePadding()
-                .imePadding()
-                .then(if (side != null) Modifier.wrapContentWidth().widthIn(max = ReadingWidth) else Modifier),
-        ) {
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                if (panelShown) {
-                    AppPanel(
-                        runtime = runtime,
-                        state = state,
-                        search = search,
-                        highlighted = highlighted,
-                        handlers = handlers,
-                        onAsk = { state.promptRequest = PromptRequest.Send },
-                        onSettings = {
-                            state.closeNow()
-                            state.settingsOpen = true
+    Column(
+        Modifier
+            .fillMaxSize()
+            .safePadding()
+            .imePadding(),
+    ) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            if (panelShown) {
+                AppPanel(
+                    runtime = runtime,
+                    state = state,
+                    search = search,
+                    highlighted = highlighted,
+                    handlers = handlers,
+                    onSettings = {
+                        state.closeNow()
+                        state.settingsOpen = true
+                    },
+                    modifier =
+                        Modifier.graphicsLayer {
+                            val progress = state.drawer.value
+                            alpha = progress.coerceAtMost(1f)
+                            translationY = (1f - progress) * size.height * 0.6f
                         },
-                        modifier =
-                            Modifier.graphicsLayer {
-                                val progress = state.drawer.value
-                                alpha = progress.coerceAtMost(1f)
-                                translationY = (1f - progress) * size.height * 0.6f
-                            },
-                    )
-                }
+                )
             }
-            // Hidden while a terminal tile types: it would sit on the keyboard, over the tile.
-            if (runtime.terminals.active == null || runtime.terminals.keyboardLeaving) {
-                // Home only: the open app list has everything.
-                // Swiping up from either does what it does on home, as from the dock on stock launchers.
-                if (LauncherStyle.recentApps && !panelShown) RecentStrip(runtime, handlers, Modifier.homeSwipe(runtime, state))
-                // Insets itself by the grid gap, so it lines up with the tiles and the gap still takes taps.
-                PromptBar(runtime, state, search = search, highlighted = highlighted, onLaunch = handlers.launch, modifier = Modifier.homeSwipe(runtime, state))
-            }
+        }
+        if (runtime.terminals.active == null || runtime.terminals.keyboardLeaving) {
+            SearchBar(
+                state,
+                search,
+                highlighted,
+                onLaunch = handlers.launch,
+                onSettings = {
+                    state.closeNow()
+                    state.settingsOpen = true
+                },
+                modifier = Modifier.homeSwipe(runtime, state),
+            )
         }
     }
 
@@ -227,42 +222,25 @@ private fun ThemesOverlay(
     runtime: Runtime,
     state: LauncherState,
 ) {
-    // A widget's screen first: what it opens (themes, agents) draws on top of it.
-    runtime.widgets.screenInstance()?.let { (spec, inst) ->
-        CompositionLocalProvider(LocalInputFocus provides true) {
-            WidgetScreenPanel(spec, inst, onDismiss = { runtime.widgets.openScreen = null })
-        }
-    }
     // Settings first so the screens it opens draw on top of it.
     if (state.settingsOpen) {
         SettingsScreen(
             runtime,
             onDismiss = { state.settingsOpen = false },
             onStyle = { state.styleOpen = true },
-            onAgents = { state.agentsOpen = true },
             onPackages = { state.packagesOpen = true },
-            onStore = { state.storeOpen = true },
             onLinux = { state.linuxOpen = true },
+            onDesktop = { state.desktopOpen = true },
             onLicenses = { state.licensesOpen = true },
             onGestures = { state.gesturesOpen = true },
         )
     }
     if (state.packagesOpen) PackagesScreen(runtime, onDismiss = { state.packagesOpen = false })
     if (state.styleOpen) StyleScreen(runtime, onDismiss = { state.styleOpen = false })
-    if (state.storeOpen) StoreScreen(runtime.widgets, runtime.agents.installed, state.currentPage, onDismiss = { state.storeOpen = false })
     if (state.licensesOpen) LicensesScreen(onDismiss = { state.licensesOpen = false })
     if (state.gesturesOpen) GesturesScreen(runtime, onDismiss = { state.gesturesOpen = false })
     if (state.linuxOpen) LinuxScreen(runtime, onDismiss = { state.linuxOpen = false })
-    if (state.agentsOpen) {
-        AgentsScreen(
-            runtime,
-            onDismiss = { state.agentsOpen = false },
-            onOpen = { agent ->
-                state.agentsOpen = false
-                runtime.terminal(agent.bin, agent.name, agent)
-            },
-        )
-    }
+    if (state.desktopOpen) DesktopModeScreen(runtime, onDismiss = { state.desktopOpen = false })
 }
 
 /** Clear of the system bars and of the camera cutout, which landscape puts at a side. */

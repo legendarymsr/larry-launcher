@@ -1,7 +1,7 @@
 package dev.legendarymsr.larrylauncher.ui
 
 /*
- * Ranking for the bar: what's typed is either an app to open or a prompt for an agent.
+ * Ranking for the bar: what's typed is an app to open.
  * Tiers are 100 apart so a usage boost (under 100) reorders within a tier, never across.
  */
 
@@ -47,8 +47,8 @@ private fun isSubsequence(
 }
 
 /**
- * Whether Enter should open the top app rather than ask the agent: a short query
- * (two words at most, one line) that names the app well. Sentences go to the agent.
+ * Whether the top app names the query well: a short query
+ * (two words at most, one line).
  */
 internal fun isStrongMatch(
     score: Int,

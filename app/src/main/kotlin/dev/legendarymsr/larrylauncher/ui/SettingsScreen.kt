@@ -33,10 +33,9 @@ fun SettingsScreen(
     runtime: Runtime,
     onDismiss: () -> Unit,
     onStyle: () -> Unit,
-    onAgents: () -> Unit,
     onPackages: () -> Unit,
-    onStore: () -> Unit,
     onLinux: () -> Unit,
+    onDesktop: () -> Unit,
     onLicenses: () -> Unit,
     onGestures: () -> Unit,
 ) {
@@ -50,20 +49,15 @@ fun SettingsScreen(
                 is LinuxState.Installing -> "installing" + (l.progress?.let { " ${(it * 100).toInt()}%" } ?: "") + " · ${l.stage.label}"
                 is LinuxState.Failed -> "setup stopped · retry"
                 LinuxState.Removing -> "removing…"
-                else -> "not installed · install Gentoo Linux for terminal apps and agents"
+                else -> "not installed · install Gentoo Linux for a terminal and portage"
             }
         val rows =
             listOf(
                 Triple("style", runtime.themes.current?.title ?: "theme, background, home screen", onStyle),
                 Triple("gestures", "swipe up: ${runtime.gestures.swipeUp.label}", onGestures),
                 Triple("linux", linuxStatus, onLinux),
-                if (installed) {
-                    Triple("coding agents", runtime.agents.default?.let { "default: ${it.name}" } ?: "install Claude Code, OpenCode, …", onAgents)
-                } else {
-                    Triple("coding agents", "needs linux", onLinux)
-                },
+                Triple("gentoo desktop", if (installed) "run real niri, fullscreen (optional install)" else "needs linux", if (installed) onDesktop else onLinux),
                 Triple("packages", if (installed) "install Linux apps and tools with portage" else "needs linux", if (installed) onPackages else onLinux),
-                Triple("add widget", "add widgets to the home screen", onStore),
                 Triple("android settings", "the phone's system settings") {
                     context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 },
@@ -123,7 +117,7 @@ private fun SetupUpdates(runtime: Runtime) {
     }
 }
 
-/** Pending Portage and agent updates, from the last check; "update all" runs them as one job. */
+/** Pending Portage updates, from the last check; "update all" runs them as one job. */
 @Composable
 private fun UpdatesRow(runtime: Runtime) {
     val updates = runtime.updates

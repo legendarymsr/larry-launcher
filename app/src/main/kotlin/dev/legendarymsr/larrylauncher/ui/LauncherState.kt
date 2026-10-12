@@ -21,8 +21,6 @@ class LauncherState {
     val drawer = Animatable(0f)
     var styleOpen by mutableStateOf(false)
 
-    var agentsOpen by mutableStateOf(false)
-    var storeOpen by mutableStateOf(false)
     var settingsOpen by mutableStateOf(false)
     var packagesOpen by mutableStateOf(false)
     var licensesOpen by mutableStateOf(false)
@@ -36,13 +34,11 @@ class LauncherState {
 
     /** The open drawer or a full-screen panel hides the home screen; animated widgets stop ticking under it. */
     val homeCovered: Boolean
-        get() = drawer.value > 0.99f || settingsOpen || styleOpen || agentsOpen || storeOpen || packagesOpen || linuxOpen || licensesOpen || gesturesOpen
+        get() = drawer.value > 0.99f || settingsOpen || styleOpen || packagesOpen || linuxOpen || licensesOpen || gesturesOpen
 
     /** Closes every overlay screen (settings and what it opens). */
     fun closeScreens() {
         styleOpen = false
-        agentsOpen = false
-        storeOpen = false
         packagesOpen = false
         linuxOpen = false
         licensesOpen = false
@@ -71,7 +67,7 @@ class LauncherState {
 
     private var typed by mutableStateOf("")
 
-    /** What's in the bar: an app to find, or a prompt for the agent. */
+    /** What's in the bar: an app to find. */
     var query: String
         get() = typed
         set(value) {
@@ -79,11 +75,14 @@ class LauncherState {
             typed = value
         }
 
-    /** The result chosen with Tab or the arrow keys (-1 = ask the agent); null follows the ranking. Reset by typing. */
+    /** The result chosen with Tab or the arrow keys ; null follows the ranking. Reset by typing. */
     var picked by mutableStateOf<Int?>(null)
 
-    /** Asks the prompt bar to start typing (Super+A) or to send (the ask row); consumed by the bar. */
-    var promptRequest by mutableStateOf<PromptRequest?>(null)
+    /** A move asked for from the keyboard: (columns, workspaces); consumed by the home strip. */
+    var nav by mutableStateOf<Pair<Int, Int>?>(null)
+
+    /** The fullscreen Gentoo desktop (real niri) is showing. */
+    var desktopOpen by mutableStateOf(false)
 
     /** Home page to scroll to (e.g. from Super+number); consumed by the pager. */
     var requestedPage by mutableStateOf<Int?>(null)

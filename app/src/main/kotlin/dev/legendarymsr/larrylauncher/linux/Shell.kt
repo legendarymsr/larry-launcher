@@ -20,7 +20,7 @@ const val PORTAGE_SYNC = "{ emaint sync -a || emerge-webrsync; }"
 /** Downloaded binary packages and sources; Portage keeps them forever otherwise. */
 const val CLEAN_PORTAGE_CACHE = "rm -rf /var/cache/binpkgs/* /var/cache/distfiles/*"
 
-/** Progress of a guest job started from the UI: installing an agent, a package, a widget's packages. */
+/** Progress of a guest job started from the UI: installing a package. */
 sealed interface JobState {
     data object Idle : JobState
 

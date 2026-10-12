@@ -1,7 +1,7 @@
 Larry Launcher is a keyboard-friendly home screen that brings a tiling-desktop look to Android, and can run a full Gentoo arm64 system next to your phone apps.
 
 THEMES
-Pick from 22 themes: Tokyo Night, Catppuccin, Gruvbox, Nord, Rose Pine, Kanagawa, Everforest and more. Each theme colors the whole launcher and the Linux apps; add your own pictures as wallpapers.
+A niri-style home: apps as columns in a horizontally scrolling strip, workspaces stacked vertically, in Tokyo Night. Optional Gentoo chroot with a Wayland terminal, and an optional real niri desktop.
 
 HOME SCREEN AND WIDGETS
 • Pages of widgets and pinned apps on a grid

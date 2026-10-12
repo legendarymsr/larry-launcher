@@ -13,7 +13,6 @@ import androidx.compose.runtime.snapshotFlow
 import dev.legendarymsr.larrylauncher.BuildConfig
 import dev.legendarymsr.larrylauncher.LauncherData
 import dev.legendarymsr.larrylauncher.Runtime
-import dev.legendarymsr.larrylauncher.linux.Agent
 import dev.legendarymsr.larrylauncher.linux.Chroot
 import dev.legendarymsr.larrylauncher.linux.emergeInstall
 import dev.legendarymsr.larrylauncher.linux.runJob
@@ -194,32 +193,6 @@ class WidgetEngine(
             is Shortcut, is Folder -> shortcuts.move(item.key, page)
         }
     }
-
-    private fun agentWidgetFile(agent: Agent) = "agent-${agent.bin}.owl"
-
-    /** [agent]'s terminal tile is on the home screen. */
-    fun hasAgentWidget(agent: Agent) = specs.any { it.file.name == agentWidgetFile(agent) }
-
-    /** Adds a terminal tile running [agent] to [page]; see [agentWidget]. */
-    suspend fun addAgentWidget(
-        agent: Agent,
-        page: Int,
-    ) = withContext(Dispatchers.IO) {
-        val name = agentWidgetFile(agent)
-        setPage(name, page)
-        File(dir, name).writeText(agentWidget(agent))
-    }
-
-    /**
-     * Adds another plain terminal tile to [page], a copy of the default one. Each is a file of its own, so there
-     * can be any number, and one removed (the default included) is always a tap away in the add-widget screen.
-     */
-    suspend fun addTerminalWidget(page: Int) =
-        withContext(Dispatchers.IO) {
-            val name = TERMINAL_PREFIX + System.currentTimeMillis().toString(36) + ".owl"
-            setPage(name, page)
-            File(dir, name).writeBytes(context.assets.open("widgets/$TERMINAL_ASSET").use { it.readBytes() })
-        }
 
     /**
      * Takes a widget off the home screen. Its file moves to .removed/ rather than
@@ -625,49 +598,10 @@ class WidgetEngine(
         }
     }
 
-    /**
-     * The widget docs, examples and default widgets. Defaults are the user's
-     * once edited or removed; the docs always match this app's language, as
-     * reference for agents. Examples aren't loaded until moved up into [dir].
-     */
-    fun managed(): List<Managed> {
-        fun asset(
-            path: String,
-            target: File,
-            policy: Policy,
-        ) = Managed(target, policy) { context.assets.open(path).use { it.readBytes() } }
+    /** Nothing is bundled any more: no default widgets, examples or docs. */
+    fun managed(): List<Managed> = emptyList()
 
-        val assets = context.assets
-        return buildList {
-            add(asset("widgets/README.md", File(dir, "README.md"), Policy.Owned))
-            for (name in assets.list("widgets/examples").orEmpty()) add(asset("widgets/examples/$name", File(dir, "examples/$name"), Policy.Seeded))
-            for (name in assets.list("widgets").orEmpty().filter { it.endsWith(".owl") }) add(asset("widgets/$name", File(dir, name), Policy.Seeded))
-        }
-    }
-
-    /** Agents look for AGENTS.md / CLAUDE.md in the guest home; these point them at the widget docs. */
-    fun guestManaged(): List<Managed> =
-        listOf("AGENTS.md", "CLAUDE.md").map { Managed.text(File(chroot.home, it), Policy.Seeded) { AGENT_POINTER } } +
-            listOf("owl-check", "owl-send").map { bin ->
-                Managed(File(chroot.rootfs, "usr/local/bin/$bin"), Policy.Owned, executable = true) { context.assets.open("$bin.sh").use { it.readBytes() } }
-            }
-
-    companion object {
-        /** The default terminal tile, which [addTerminalWidget] copies. */
-        private const val TERMINAL_ASSET = "45-terminal.owl"
-        private const val TERMINAL_PREFIX = "terminal-"
-
-        /** The widgets dir, relative to the guest home. */
-        const val GUEST_DIR = ".config/larrylauncher/widgets"
-
-        private const val AGENT_POINTER =
-            "# larrylauncher\n\nThis Gentoo system runs inside an Android launcher. Home-screen widgets are `.owl` files in " +
-                "~/$GUEST_DIR, written in a small declarative language documented in README.md there. " +
-                "Saved files show up on the phone within seconds. After saving, run `owl-check <file>`: it prints the errors " +
-                "and the path of a PNG of the tile, drawn with live data; look at it to check the layout. " +
-                "examples/ holds more widgets to learn from or move up to use. Scripts, cron jobs and hooks can set a running " +
-                "widget's state or refresh it with `owl-send <file> set <state> <value>` and `owl-send <file> refresh`.\n"
-    }
+    fun guestManaged(): List<Managed> = emptyList()
 }
 
 /** The `requires` key for Portage atoms (`category/name`). */

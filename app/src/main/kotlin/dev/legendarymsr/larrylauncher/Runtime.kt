@@ -15,9 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import dev.legendarymsr.larrylauncher.linux.AGENTS
-import dev.legendarymsr.larrylauncher.linux.Agent
-import dev.legendarymsr.larrylauncher.linux.AgentStore
 import dev.legendarymsr.larrylauncher.linux.AudioBridge
 import dev.legendarymsr.larrylauncher.linux.Bootstrap
 import dev.legendarymsr.larrylauncher.linux.FILES_COMMAND
@@ -86,10 +83,10 @@ class Runtime(
     val themes = ThemeStore(context, chroot, isLinux = { linux }, onConfigChanged = ::syncGuest)
     private val audio = AudioBridge(chroot)
     private val openBridge = OpenBridge(context, chroot, onOpenFiles = ::openFiles)
-    val agents = AgentStore(chroot, onChanged = ::syncGuest)
     val portage = Portage(chroot)
+    val desktop = dev.legendarymsr.larrylauncher.linux.Desktop(chroot, portage)
     val widgets = WidgetEngine(context, chroot, this)
-    val updates = SystemUpdates(chroot, portage, agents)
+    val updates = SystemUpdates(chroot, portage)
     val gpu = Gpu(context, chroot)
 
     /** The launcher's own provided files (default widgets, their docs); see [Provisioner]. */
@@ -104,12 +101,11 @@ class Runtime(
                 { defaultApps(chroot.applications) },
                 { bundledIcons(context, chroot.home) },
                 openBridge::managed,
-                agents::managed,
                 themes::managed,
                 widgets::guestManaged,
             ),
         )
-    val bootstrap = Bootstrap(context, chroot, agents, portage, provisioner)
+    val bootstrap = Bootstrap(context, chroot, portage, provisioner)
 
     /** Its jobs write files and start the guest; one that fails (storage full) mustn't take the home screen down. */
     private val scope =
@@ -164,7 +160,7 @@ class Runtime(
                 when (name) {
                     "Terminal" -> "TerminalWindow"
                     "btop" -> "BtopWindow"
-                    else -> agentOf(window?.appId.orEmpty(), name)?.windowAlias ?: "LinuxWindowActivity"
+                    else -> "LinuxWindowActivity"
                 }
             context.startActivity(
                 Intent()
@@ -185,7 +181,6 @@ class Runtime(
         scope.launch {
             withContext(Dispatchers.IO) {
                 launcherFiles.sync()
-                agents.load()
             }
             themes.load()
             widgets.start()
@@ -206,8 +201,8 @@ class Runtime(
         launcherReady = true
     }
 
-    /** Installs Linux in the background, with [agents]; progress shows in [Bootstrap.state] and the notification. */
-    fun installLinux(agents: List<Agent>) = runLinux { bootstrap.install(agents) }
+    /** Installs Linux in the background; progress shows in [Bootstrap.state] and the notification. */
+    fun installLinux() = runLinux { bootstrap.install() }
 
     /** Continues a failed install, or a failed update of an installed system. */
     fun retryLinux() = runLinux { bootstrap.run() }
@@ -242,7 +237,7 @@ class Runtime(
     }
 
     /**
-     * Deletes Linux: its apps, agents, packages and home. Themes, widgets and
+     * Deletes Linux: its apps, packages and home. Themes, widgets and
      * The home screen stay; widgets that need Linux turn back into placeholders.
      */
     fun removeLinux() {
@@ -256,7 +251,6 @@ class Runtime(
                 bootstrap.remove()
                 withContext(Dispatchers.IO) {
                     updates.forget()
-                    agents.load()
                 }
                 gpu.turnOff()
                 linuxApps.clear()
@@ -283,7 +277,7 @@ class Runtime(
         if (on) runCatching { context.startForegroundService(intent) }.onFailure { Log.w(TAG, "cannot start the service", it) } else context.stopService(intent)
     }
 
-    /** Guest configs follow the theme and the installed agents; only while there is a guest. */
+    /** Guest configs follow the theme; only while there is a guest. */
     private fun syncGuest() {
         if (linux) provisioner.sync()
     }
@@ -323,7 +317,6 @@ class Runtime(
             provisioner.sync()
             audio.start()
             synchronized(server) { server.input.setKeymap(chroot.keymap.path) }
-            agents.load()
         }
         widgets.linuxChanged(true)
         refreshApps()
@@ -343,7 +336,7 @@ class Runtime(
         if (on) scope.launch { gpu.turnOn() } else gpu.turnOff()
     }
 
-    /** Runs every pending update (packages and agents); the drawer then lists what changed. */
+    /** Runs every pending update (packages); the drawer then lists what changed. */
     fun updateSystem() {
         scope.launch {
             updates.updateAll()
@@ -440,9 +433,6 @@ class Runtime(
     /** Wayland app_id -> name for windows we started, so their Android tasks get a proper label. */
     private val launchedNames = ConcurrentHashMap<String, String>()
 
-    /** Wayland app_id -> the agent running in it, for sessions not named after their agent ("New app"). */
-    private val launchedAgents = ConcurrentHashMap<String, Agent>()
-
     /** Whether a window's foot takes its size from foot.ini, as its own terminals, plain foot and most tiles do. */
     private fun followsTerminalFont(appId: String) =
         when {
@@ -454,23 +444,19 @@ class Runtime(
 
     /**
      * Opens [command] (or a shell) in a terminal named [name]. Each gets its own
-     * foot app_id, so Recents shows "Grok" or "btop" rather than one "foot" per window.
-     * An [agent] session gets the agent's logo and Recents entry whatever it's named.
+     * foot app_id, so Recents shows "btop" or "Editor" rather than one "foot" per window.
      */
     fun terminal(
         command: String?,
         name: String,
-        agent: Agent? = null,
     ) {
         if (!linux) {
             linuxWanted = true
             return
         }
-        // Per agent, so a Claude and a Grok "New app" don't share an app_id.
-        val slug = if (agent == null || agent.name == name) name else "${agent.bin} $name"
+        val slug = name
         val appId = "larrylauncher." + slug.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-')
         launchedNames[appId] = name
-        if (agent != null) launchedAgents[appId] = agent
         val args = command?.let { " -e bash -c " + shellQuote(it) }.orEmpty()
         launch("foot --app-id=$appId${terminalFont.optionFor(appId, command)}$args")
     }
@@ -494,6 +480,26 @@ class Runtime(
         launch(app.exec)
     }
 
+    /** niri's window, if the Gentoo desktop is running. */
+    val niriWindow get() = wm.appWindows.firstOrNull { it.appId.startsWith("niri") || it.title.startsWith("niri") }
+
+    fun startDesktop() {
+        niriWindow?.let { return showWindow(it) }
+        launch(desktop.startCommand())
+    }
+
+    fun stopDesktop() = launch(dev.legendarymsr.larrylauncher.linux.Desktop.STOP_COMMAND)
+
+    fun installDesktop() {
+        scope.launch { desktop.install() }
+    }
+
+    /** Shows a Linux window from the home screen's column strip: its task, or a new one. */
+    fun showWindow(window: XdgToplevel) {
+        if (bringToFront(window)) return
+        wm.handleOf(window)?.let(wm.openAppWindow)
+    }
+
     /** Moves [window]'s Android task to the front; false if it has none (yet). */
     private fun bringToFront(window: XdgToplevel): Boolean {
         val handle = wm.handleOf(window) ?: return false
@@ -515,13 +521,7 @@ class Runtime(
         return title.ifEmpty { appId.ifEmpty { "Linux" } }
     }
 
-    /** The agent running in a Linux window: one started for it, or one named after it. */
-    fun agentOf(
-        appId: String,
-        name: String?,
-    ): Agent? = launchedAgents[appId] ?: AGENTS.firstOrNull { it.name == name }
-
-    /** The drawer icon of the app called [name] (an agent's logo, say); null until loaded, or if it has none. */
+    /** The drawer icon of the app called [name]; null until loaded, or if it has none. */
     fun iconNamed(name: String): ImageBitmap? = linuxApps.firstOrNull { it.name == name }?.let { linuxIcons[it.id] }
 
     /** Opens the Files app, at [path] (a guest path) if given. */

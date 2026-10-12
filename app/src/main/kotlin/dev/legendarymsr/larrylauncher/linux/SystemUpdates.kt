@@ -22,7 +22,7 @@ private const val CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
 /** After a failed check (offline), the next automatic one waits this long. */
 private const val RETRY_MS = 15 * 60 * 1000L
 
-/** A tool mise can upgrade: a coding agent (by its name) or something else it installed, like node. */
+/** A tool mise can upgrade: something it installed, like node. */
 data class ToolUpdate(
     val name: String,
     val current: String,
@@ -40,15 +40,13 @@ data class PendingUpdates(
 }
 
 /**
- * Updates for the guest: Portage packages and the tools mise installed (the
- * coding agents). Checking is a pretend emerge against the tree from the last
+ * Updates for the guest: Portage packages and the tools mise installed . Checking is a pretend emerge against the tree from the last
  * sync and never takes the Portage lock; updating (sync, then @world) is one
  * job the user starts, never automatic.
  */
 class SystemUpdates(
     private val chroot: Chroot,
     private val portage: Portage,
-    private val agents: AgentStore,
 ) {
     private val file = File(chroot.filesDir, "updates.json")
 
@@ -119,13 +117,13 @@ class SystemUpdates(
         return PendingUpdates(packages, parseMise(text.substringAfter("#mise\n", "")), now)
     }
 
-    /** `mise outdated --json`: `{tool: {current, latest, ...}}`, named after the agent it is. */
+    /** `mise outdated --json`: `{tool: {current, latest, ...}}`. */
     private fun parseMise(json: String): List<ToolUpdate> {
         val root = runCatching { JSONObject(json.trim().ifEmpty { "{}" }) }.getOrElse { return emptyList() }
         return root.keys().asSequence().mapNotNull { key ->
             val o = root.optJSONObject(key) ?: return@mapNotNull null
             val latest = o.optString("latest").ifEmpty { return@mapNotNull null }
-            val name = AGENTS.firstOrNull { it.pkg == key || it.pkg == o.optString("name") }?.name ?: key
+            val name = key
             ToolUpdate(name, o.optString("current").ifEmpty { "?" }, latest)
         }.toList()
     }
@@ -153,8 +151,6 @@ class SystemUpdates(
                     ok
                 }
             }
-        // Agents may have changed, and what's left to update is worth knowing either way.
-        withContext(Dispatchers.IO) { agents.load() }
         check(force = true)
         return ok
     }

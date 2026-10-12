@@ -1,3 +1,5 @@
+> Note: the home screen is now a niri-like column strip (`ui/NiriHome.kt`); widgets and coding agents were removed. Sections below that mention them are historical.
+
 # Architecture
 
 How Larry Launcher is put together, for anyone working on it.
@@ -10,7 +12,7 @@ so it gets a Recents card and behaves like a separate app.
 Linux is optional. Without it the launcher still has the themes and
 wallpapers, Android apps from the bar and the widgets that don't run commands.
 Everything else is offered as an install from settings › linux and wherever
-it appears: Linux apps, terminal widgets, coding agents, Portage and Files.
+it appears: Linux apps, Portage and Files.
 Widgets that need Linux (`Program.needsLinux`: cmd/stream sources, `Terminal`,
 run/terminal/app actions, `requires`) show as placeholders in their cells until
 it's installed. Removing Linux deletes `files/gentoo` only.
@@ -98,7 +100,7 @@ reach existing installs without breaking them. There are four mechanisms:
   store's `index.json` format number only changes for incompatible changes.
 
 **System updates** (`linux/SystemUpdates.kt`) are the user's own: Portage
-packages and the tools mise installed (the coding agents). The launcher
+packages and the tools mise installed . The launcher
 checks at most every 6 hours while it's on screen: `emerge --pretend --update
 --deep --newuse @world` against the tree from the last sync, which never takes
 Portage's lock, plus `mise outdated`. When updates are pending, a dot shows on the

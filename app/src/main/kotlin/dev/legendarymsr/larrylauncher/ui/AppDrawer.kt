@@ -178,12 +178,12 @@ internal fun Modifier.swipeTabs(
     }
 }
 
-/** What the bar's query matched: apps best first, and whether Enter opens the first rather than asking the agent. */
+/** What the bar's query matched: apps best first, and whether Enter opens the first. */
 internal class BarSearch(
     val hits: List<AppHit>,
     val opensApp: Boolean,
 ) {
-    /** The result Enter acts on: an index into [hits], or -1 for the agent. */
+    /** The result Enter acts on: an index into [hits], or -1 for none. */
     fun highlighted(picked: Int?) = picked?.coerceIn(-1, hits.lastIndex) ?: if (opensApp) 0 else -1
 }
 
@@ -196,7 +196,7 @@ internal fun searchApps(
     if (query.isBlank()) return BarSearch(emptyList(), false)
     val now = System.currentTimeMillis()
     val ranked = rankMatches(allApps(runtime), query, { it.label }, boost = { (runtime.usage.score(it.key, now) * 10).toInt() }, alias = { it.alias })
-    return BarSearch(ranked.map { it.first }, ranked.firstOrNull()?.let { isStrongMatch(it.second, query) } == true)
+    return BarSearch(ranked.map { it.first }, ranked.isNotEmpty())
 }
 
 /** What the app cells do: open, pin to home, and the Android app's info and uninstall. */
@@ -346,7 +346,7 @@ private fun recentApps(
 
 /**
  * The bar's results, growing up from it. Empty query: Linux and Android apps to browse.
- * Typing: matches best first, and a row that asks the agent.
+ * Typing: matches best first.
  */
 @Composable
 internal fun AppPanel(
@@ -355,7 +355,6 @@ internal fun AppPanel(
     search: BarSearch,
     highlighted: Int,
     handlers: AppHandlers,
-    onAsk: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -520,44 +519,8 @@ internal fun AppPanel(
                         }
                     }
                 }
-                if (query.isNotBlank()) AskRow(runtime, linuxState == LinuxState.Installed, query, highlighted == -1, onAsk)
             }
         }
-    }
-}
-
-/** The one line above the bar that sends what's typed to the agent. */
-@Composable
-private fun AskRow(
-    runtime: Runtime,
-    linux: Boolean,
-    query: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
-    val agent = runtime.agents.default
-    val label =
-        when {
-            !linux -> "ask an agent · install linux"
-            agent == null -> "ask an agent · install one"
-            else -> "ask ${agent.bin}: " + query.trim().replace('\n', ' ')
-        }
-    Row(
-        Modifier
-            .padding(bottom = 6.dp)
-            .fillMaxWidth()
-            .then(if (selected) Modifier.frame(2.dp, Palette.accent, Palette.background) else Modifier.clip(LauncherStyle.shape()))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        BasicText("⏎ ", style = Mono.copy(color = if (selected) Palette.accent else Palette.muted))
-        BasicText(
-            label,
-            style = Mono.copy(color = if (selected) Palette.foreground else Palette.muted),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 
@@ -732,5 +695,16 @@ private fun AppActions(
         }
     Popup(popupPositionProvider = position, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
         MenuItems(actions, onDismiss, minWidth = 160.dp, itemPadding = 12.dp, fontSize = TextSize.Item)
+    }
+}
+
+internal const val PausedAlpha = 0.4f
+
+internal fun initials(name: String): String {
+    val words = name.split(Regex("[^A-Za-z0-9]+")).filter { it.isNotEmpty() }
+    return when {
+        words.size >= 2 -> "${words[0][0]}${words[1][0]}".uppercase()
+        words.isNotEmpty() -> words[0].take(2).replaceFirstChar(Char::uppercase)
+        else -> "?"
     }
 }

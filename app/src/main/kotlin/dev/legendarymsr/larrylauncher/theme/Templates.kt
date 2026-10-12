@@ -1,6 +1,6 @@
 package dev.legendarymsr.larrylauncher.theme
 
-/** The subset of the template syntax that doesn't depend on Hyprland. */
+/** The subset of the template syntax that the launcher supports. */
 object Templates {
     private val TOKEN = Regex("""\{\{\s*([^}]+?)\s*\}\}""")
 

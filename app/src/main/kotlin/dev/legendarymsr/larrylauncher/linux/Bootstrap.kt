@@ -27,19 +27,15 @@ private const val BINHOST = "https://distfiles.gentoo.org/releases/arm64/binpack
 private const val NETWORK_TRIES = 3
 
 /**
- * Kept small: the terminal, a font, the keymap compiler and what the default and example
- * widgets run. Everything else is one emerge away. Changing this list needs a new id for
+ * Kept small: the terminal, a font, the keymap compiler and a few essentials. No audio
+ * stack: pulseaudio's binhost builds pull alsa-plugins USE combinations that fail to resolve. Everything else is one emerge away. Changing this list needs a new id for
  * The packages step.
  */
-private val PACKAGES =
+internal val PACKAGES =
     listOf(
-        "gui-apps/foot", "media-fonts/dejavu", "x11-libs/libxkbcommon", "media-libs/libpulse",
-        "sys-process/procps", "sys-apps/gawk", "app-misc/jq", "net-misc/curl", "dev-vcs/git",
+        "gui-apps/foot", "media-fonts/dejavu", "x11-libs/libxkbcommon",
+        "sys-process/procps", "net-misc/curl", "dev-vcs/git",
     )
-
-/** the Winamp-style player; upstream ships an arm64 build. */
-private const val CLIAMP_VERSION = "v2.3.0"
-private const val CLIAMP_URL = "https://github.com/bjarneo/cliamp/releases/download/$CLIAMP_VERSION/cliamp-linux-arm64"
 
 /** Appended to make.conf: binary packages first, and no Portage sandboxes that need namespaces Android kernels lack. */
 private val MAKE_CONF =
@@ -50,20 +46,17 @@ private val MAKE_CONF =
     """.trimIndent()
 
 /**
- * USE matching the official arm64 binhost so its packages are used as-is (libpulse is built
- * with X and dbus there, and pulseaudio-daemon needs libpulse[X]). libxkbcommon adds tools for
+ * USE matching the official arm64 binhost so its packages are used as-is. libxkbcommon adds tools for
  * xkbcli (the keymap step); that one small package builds from source.
  */
-private val PACKAGE_USE =
+internal val PACKAGE_USE =
     listOf(
         "x11-libs/libxkbcommon X tools",
-        "media-libs/libpulse X dbus",
-        "media-sound/pulseaudio-daemon X dbus",
     )
 
 /** Rewritten by configure and again before every package install, so a retry re-applies it. */
 internal val PACKAGE_USE_SCRIPT =
-    "mkdir -p /etc/portage/package.use && printf '%s\\n' " +
+    "mkdir -p /etc/portage/package.use && rm -f /etc/portage/package.use/zz-autounmask && printf '%s\\n' " +
         PACKAGE_USE.joinToString(" ") { shellQuote(it) } + " > /etc/portage/package.use/larrylauncher"
 
 /** What the bootstrap installs; the packages screen doesn't offer to remove these. */
@@ -77,7 +70,6 @@ enum class Stage(
     Extract("unpack the system"),
     Configure("configure portage"),
     Packages("install the default apps"),
-    Agents("install coding agents"),
 }
 
 /** Where the optional Linux system stands. The launcher works in every state; Linux features only when [Installed]. */
@@ -149,7 +141,6 @@ private class Step(
 class Bootstrap(
     private val context: Context,
     private val chroot: Chroot,
-    private val agents: AgentStore,
     private val portage: Portage,
     /** The guest's files; see [Provisioner]. */
     private val provisioner: Provisioner,
@@ -169,17 +160,8 @@ class Bootstrap(
     private val log = OutputTail(200)
     private val journal = StepJournal(File(chroot.filesDir, "gentoo-steps.json"))
 
-    /** The agents picked when installing Linux, one bin per line; its existence means an install was started. */
+    /** Written when an install starts; its existence means one was started. (Old name kept for existing installs.) */
     private val choiceFile get() = File(chroot.filesDir, "gentoo-setup-agents")
-
-    /** The coding agents setup installs, in the order they were listed. */
-    val chosenAgents: List<Agent>
-        get() = runCatching { choiceFile.readLines() }.getOrDefault(emptyList()).mapNotNull { bin -> AGENTS.find { it.bin == bin } }
-
-    fun choose(picked: List<Agent>) {
-        chroot.filesDir.mkdirs()
-        choiceFile.writeText(picked.joinToString("") { it.bin + "\n" })
-    }
 
     private var stage = Stage.Download
     private var step = ""
@@ -194,9 +176,8 @@ class Bootstrap(
             },
             Step("sync-1", Stage.Configure, "Fetching the Portage tree", network = true) { guest("emerge-webrsync") },
             Step("getuto-1", Stage.Configure, "Trusting the binhost's key", network = true) { guest("getuto") },
-            Step("packages-1", Stage.Packages, "Installing packages", network = true) { guest("$PACKAGE_USE_SCRIPT && " + emergeInstall(PACKAGES)) },
+            Step("packages-2", Stage.Packages, "Installing packages", network = true) { guest("$PACKAGE_USE_SCRIPT && " + emergeInstall(PACKAGES)) },
             Step("keymap-1", Stage.Packages, "Compiling keymap", network = false, isDone = { chroot.keymap.exists() }) { compileKeymap() },
-            Step("cliamp-$CLIAMP_VERSION", Stage.Packages, "Installing cliamp", network = true) { installCliamp() },
         )
 
     private fun Step.done() = isDone?.invoke() ?: (id in journal)
@@ -259,9 +240,10 @@ class Bootstrap(
         _state.value = LinuxState.stopped(_state.value, reason)
     }
 
-    /** Starts installing Linux with [picked] coding agents; see [run]. */
-    suspend fun install(picked: List<Agent>) {
-        choose(picked)
+    /** Starts installing Linux; see [run]. */
+    suspend fun install() {
+        chroot.filesDir.mkdirs()
+        choiceFile.writeText("")
         run()
     }
 
@@ -292,8 +274,7 @@ class Bootstrap(
 
     /**
      * A fresh install: every step, in order. A failure stops here and a
-     * retry picks up at the failed step. Agents are extras: the system
-     * works without them, and settings can retry.
+     * retry picks up at the failed step.
      */
     private suspend fun setup() {
         for (step in steps) {
@@ -307,7 +288,6 @@ class Bootstrap(
                 log.add("${step.label} failed: ${e.message}; retry in settings")
             }
         }
-        installAgents()
         chroot.relabel(whole = true)
         journal.completeSetup()
     }
@@ -361,25 +341,6 @@ class Bootstrap(
             _updates.value = JobState.Idle
         }
 
-    /**
-     * Installs the agents picked on the welcome screen. A failed agent doesn't
-     * fail setup: it can be installed again from settings.
-     */
-    private suspend fun installAgents() {
-        val chosen = chosenAgents
-        for (agent in chosen) {
-            if (agents.isInstalled(agent)) continue
-            try {
-                report(Stage.Agents, "Installing ${agent.name}")
-                guest(agents.installScript(agent))
-                agents.onInstalled(agent)
-            } catch (e: IllegalStateException) {
-                log.add("${agent.name} didn't install; try again in settings › coding agents")
-            }
-        }
-        chosen.firstOrNull { agents.isInstalled(it) }?.let(agents::choose)
-    }
-
     private fun report(
         stage: Stage,
         step: String,
@@ -393,7 +354,7 @@ class Bootstrap(
 
     /** Always a fresh unpack: this step only runs until one completed, so a rootfs here is a half-unpacked one. */
     private fun installRootfs() {
-        // Unpacking replaces the rootfs: the user's home, packages and agents. Only ever before a setup finished.
+        // Unpacking replaces the rootfs: the user's home and packages. Only ever before a setup finished.
         check(!journal.setupComplete) { "refusing to replace a set-up system" }
         val tarball = obtainTarball()
         try {
@@ -570,13 +531,6 @@ class Bootstrap(
         )
         // Clients mmap the keymap and parse it as a C string.
         writeAtomically(chroot.keymap, chroot.hostFile("/tmp/keymap.xkb").readBytes() + 0)
-    }
-
-    private fun installCliamp() {
-        val bytes = URL(CLIAMP_URL).openStream().use { it.readBytes() }
-        // /usr/local/bin is root's: written to the guest's /tmp, installed from inside.
-        writeAtomically(chroot.hostFile("/tmp/cliamp"), bytes, executable = true)
-        guest("install -Dm755 /tmp/cliamp /usr/local/bin/cliamp && rm -f /tmp/cliamp")
     }
 
     private fun guest(script: String) {

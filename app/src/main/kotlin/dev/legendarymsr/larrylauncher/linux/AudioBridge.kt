@@ -90,6 +90,11 @@ class AudioBridge(
         var backoff = 1000L
         while (true) {
             while (!running) Thread.sleep(1000)
+            // Not in the default set: only once the user emerges pulseaudio themselves.
+            if (!chroot.hostFile("/usr/bin/pulseaudio").exists()) {
+                Thread.sleep(30_000)
+                continue
+            }
             val started = SystemClock.elapsedRealtime()
             val code =
                 runCatching {

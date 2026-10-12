@@ -79,7 +79,7 @@ class LinuxWindowActivity : ComponentActivity() {
             }
             // Terminals retitle constantly; only a new label changes the Recents card.
             val label = runtime.displayName(window.appId, window.title)
-            val appIcon = runtime.iconNamed(runtime.agentOf(window.appId, label)?.name ?: label)
+            val appIcon = runtime.iconNamed(label)
             LaunchedEffect(label, appIcon, Palette.accent) {
                 val icon = appIcon?.asAndroidBitmap() ?: taskIcon(label, Palette.background.toArgb(), Palette.accent.toArgb())
                 val description =

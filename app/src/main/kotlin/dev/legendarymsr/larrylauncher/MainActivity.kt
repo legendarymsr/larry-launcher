@@ -18,7 +18,6 @@ import dev.legendarymsr.larrylauncher.ui.Palette
 import dev.legendarymsr.larrylauncher.ui.applySystemBars
 import dev.legendarymsr.larrylauncher.ui.LauncherRoot
 import dev.legendarymsr.larrylauncher.ui.LauncherState
-import dev.legendarymsr.larrylauncher.ui.PromptRequest
 
 /** The home screen: widgets, pinned apps and the drawer; Linux windows open as their own tasks. */
 class MainActivity : ComponentActivity() {
@@ -132,7 +131,11 @@ class MainActivity : ComponentActivity() {
         when (keyCode) {
             KeyEvent.KEYCODE_ENTER -> runtime.terminal(null, "Terminal")
             KeyEvent.KEYCODE_SPACE -> state.toggle()
-            KeyEvent.KEYCODE_A -> state.promptRequest = PromptRequest.Type
+            KeyEvent.KEYCODE_D -> state.open()
+            KeyEvent.KEYCODE_H, KeyEvent.KEYCODE_DPAD_LEFT -> state.nav = -1 to 0
+            KeyEvent.KEYCODE_L, KeyEvent.KEYCODE_DPAD_RIGHT -> state.nav = 1 to 0
+            KeyEvent.KEYCODE_J, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> state.nav = 0 to 1
+            KeyEvent.KEYCODE_K, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> state.nav = 0 to -1
             in KeyEvent.KEYCODE_1..KeyEvent.KEYCODE_9 -> state.requestedPage = keyCode - KeyEvent.KEYCODE_1
             else -> return false
         }

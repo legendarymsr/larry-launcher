@@ -43,8 +43,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.legendarymsr.larrylauncher.linux.AGENTS
-import dev.legendarymsr.larrylauncher.linux.Agent
 import androidx.compose.runtime.rememberCoroutineScope
 import dev.legendarymsr.larrylauncher.Runtime
 import dev.legendarymsr.larrylauncher.linux.LinuxState
@@ -63,8 +61,6 @@ import kotlinx.coroutines.launch
 internal fun SetupScreen(runtime: Runtime) {
     val themes = runtime.themes
     var linux by rememberSaveable { mutableStateOf(false) }
-    // Claude Code first, desktop-style's default agent; the first picked becomes the launcher's default.
-    var picked by rememberSaveable { mutableStateOf(listOf(AGENTS.first().bin)) }
     var started by remember { mutableStateOf(false) }
     val install = rememberLinuxInstall(runtime)
     val scope = rememberCoroutineScope()
@@ -80,11 +76,10 @@ internal fun SetupScreen(runtime: Runtime) {
             ) {
                 Wordmark()
                 if (!started) {
-                    Welcome(runtime, themes, linux, { linux = !linux }, picked) { bin -> picked = if (bin in picked) picked - bin else picked + bin }
+                    Welcome(runtime, themes, linux) { linux = !linux }
                 }
             }
         }
-        // The start button stays in reach while the agent list scrolls.
         if (!started) {
             Column(Modifier.widthIn(max = 560.dp).fillMaxWidth().padding(start = Gutter, end = Gutter, top = 12.dp, bottom = 16.dp)) {
                 Appear(3) {
@@ -95,7 +90,7 @@ internal fun SetupScreen(runtime: Runtime) {
                             return@StartButton
                         }
                         started = true
-                        if (linux) install(picked)
+                        if (linux) install()
                         scope.launch {
                             themes.rescan()
                             themes.applyPicked()
@@ -126,8 +121,6 @@ private fun Welcome(
     themes: ThemeStore,
     linux: Boolean,
     onToggleLinux: () -> Unit,
-    picked: List<String>,
-    onToggle: (String) -> Unit,
 ) {
     Appear(0) {
         Column {
@@ -135,8 +128,8 @@ private fun Welcome(
             BasicText("Larry Launcher on your home screen", style = Mono.copy(fontSize = TextSize.Large))
             Spacer(Modifier.height(10.dp))
             BasicText(
-                "The themes and wallpapers, your Android apps, and home-screen widgets. Gentoo Linux adds " +
-                    "terminal apps and coding agents, now or later in settings.",
+                "A scrolling, tiling home for your Android apps. Gentoo Linux adds " +
+                    "a Wayland terminal and Portage, now or later in settings.",
                 style = Mono.copy(color = Subtle, lineHeight = 20.sp),
             )
         }
@@ -151,29 +144,6 @@ private fun Welcome(
             Choice("also set up Gentoo Linux", "needs magisk root · runs as real root · portage", linux, onToggleLinux)
             Spacer(Modifier.height(12.dp))
             RootPanel(runtime)
-            if (linux) {
-                Spacer(Modifier.height(24.dp))
-                AgentPicker(picked, onToggle)
-            }
-        }
-    }
-}
-
-/** The coding agents to install with Linux; the first picked becomes the default. */
-@Composable
-internal fun AgentPicker(
-    picked: List<String>,
-    onToggle: (String) -> Unit,
-) {
-    Column {
-        Label("coding agents")
-        BasicText(
-            "Pick any to install with Linux. You can add or remove them later in settings.",
-            Modifier.padding(top = 4.dp, bottom = 14.dp),
-            style = Mono.copy(color = Subtle, fontSize = TextSize.Small),
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (agent in AGENTS) Choice(agent.name, agent.description, agent.bin in picked) { onToggle(agent.bin) }
         }
     }
 }
@@ -256,7 +226,6 @@ internal fun PrimaryButton(
 @Composable
 internal fun LinuxProgress(
     state: LinuxState,
-    agents: List<Agent>,
     onRetry: () -> Unit,
 ) {
     val failed = state as? LinuxState.Failed
@@ -268,7 +237,7 @@ internal fun LinuxProgress(
         style = Mono.copy(fontSize = TextSize.Large, color = if (failed != null) Palette.red else Palette.foreground),
     )
     Spacer(Modifier.height(24.dp))
-    val stages = Stage.entries.filter { it != Stage.Agents || agents.isNotEmpty() }
+    val stages = Stage.entries
     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
         for (stage in stages) {
             val status =
@@ -279,7 +248,7 @@ internal fun LinuxProgress(
                     else -> StageStatus.Running
                 }
             StageRow(
-                label = if (stage == Stage.Agents) "install ${agents.joinToString { it.name }}" else stage.label,
+                label = stage.label,
                 status = status,
                 detail = working?.takeIf { stage == current }?.step ?: failed?.takeIf { stage == current }?.message,
                 progress = working?.takeIf { stage == current }?.progress,
@@ -368,7 +337,7 @@ private fun Spinner() {
 
 /** The last lines of setup's output; tap for more. */
 @Composable
-private fun LogTail(
+internal fun LogTail(
     log: List<String>,
     expandedByDefault: Boolean,
 ) {

@@ -29,7 +29,7 @@ retitle that section with the version when releasing.
 
 ## Store assets
 
-- `art/`: the SVG masters. `scripts/make-icons.sh` renders the app and agent
+- `art/`: the SVG masters. `scripts/make-icons.sh` renders the app
   icons from them, including the Play Store icon; the feature graphic is
   exported by hand to `fastlane/metadata/android/en-US/images/featureGraphic.png`.
 - `store/screenshots/`: `frame.html` adds the captions and frames to the raw

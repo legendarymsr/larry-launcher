@@ -15,8 +15,8 @@ private const val TAG = "open"
 
 /**
  * `xdg-open` for the guest: URLs are written to a FIFO in the shared runtime
- * dir and opened with Android's browser. That's what makes agent logins work:
- * the OAuth page opens on the phone and redirects back to the agent's
+ * dir and opened with Android's browser. That makes OAuth logins work:
+ * the OAuth page opens on the phone and redirects back to the app's
  * localhost listener, since the guest shares the phone's network.
  */
 class OpenBridge(

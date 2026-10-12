@@ -30,7 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.legendarymsr.larrylauncher.Runtime
-import dev.legendarymsr.larrylauncher.linux.AGENTS
 import dev.legendarymsr.larrylauncher.linux.JobState
 import dev.legendarymsr.larrylauncher.linux.LinuxState
 import dev.legendarymsr.larrylauncher.linux.RootState
@@ -64,10 +63,10 @@ fun LinuxScreen(
                         BasicText("checking linux…", style = Mono.copy(color = Palette.muted))
                     } else {
                         // No job will move it on: show the steps and a retry instead of nothing.
-                        LinuxProgress(LinuxState.stopped(s, "linux didn't start"), runtime.bootstrap.chosenAgents, runtime::retryLinux)
+                        LinuxProgress(LinuxState.stopped(s, "linux didn't start"), runtime::retryLinux)
                     }
                 LinuxState.NotInstalled -> InstallOffer(runtime)
-                is LinuxState.Installing, is LinuxState.Failed -> LinuxProgress(s, runtime.bootstrap.chosenAgents, runtime::retryLinux)
+                is LinuxState.Installing, is LinuxState.Failed -> LinuxProgress(s, runtime::retryLinux)
                 LinuxState.Installed -> Installed(runtime)
                 LinuxState.Removing -> BasicText("removing linux…", style = Mono.copy(color = Palette.accent))
             }
@@ -82,11 +81,11 @@ fun LinuxScreen(
  * screen, becoming the home app moves home to a new task, away from the dialog.
  */
 @Composable
-fun rememberLinuxInstall(runtime: Runtime): (List<String>) -> Unit {
+fun rememberLinuxInstall(runtime: Runtime): () -> Unit {
     val context = LocalContext.current
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    return { bins ->
-        runtime.installLinux(AGENTS.filter { it.bin in bins })
+    return {
+        runtime.installLinux()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -97,26 +96,23 @@ fun rememberLinuxInstall(runtime: Runtime): (List<String>) -> Unit {
 
 @Composable
 private fun InstallOffer(runtime: Runtime) {
-    var picked by rememberSaveable { mutableStateOf(listOf(AGENTS.first().bin)) }
     val install = rememberLinuxInstall(runtime)
     BasicText("gentoo linux, optional", style = Mono.copy(fontSize = TextSize.Large))
     Spacer(Modifier.height(8.dp))
     BasicText(
-        "Linux apps, terminal widgets, coding agents, Portage and Files. Needs Magisk root. A few hundred MB to download; installs in the background.",
+        "A Wayland terminal (foot), Portage and Files. Needs Magisk root. A few hundred MB to download; installs in the background.",
         style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small),
     )
     Spacer(Modifier.height(12.dp))
     RootPanel(runtime)
     Spacer(Modifier.height(16.dp))
     val root by runtime.chroot.root.collectAsState()
-    // Above the agent list, so it's in reach without scrolling. Without root, Linux stays off.
+    // Without root, Linux stays off.
     if (root == RootState.Granted) {
-        PrimaryButton(if (picked.isEmpty()) "install linux" else "install linux and ${picked.size} agent${if (picked.size == 1) "" else "s"}") {
-            install(picked)
+        PrimaryButton("install linux") {
+            install()
         }
     }
-    Spacer(Modifier.height(24.dp))
-    AgentPicker(picked) { bin -> picked = if (bin in picked) picked - bin else picked + bin }
 }
 
 @Composable
@@ -150,8 +146,8 @@ private fun Installed(runtime: Runtime) {
         ) {
             BasicText("remove linux?", style = Mono.copy(color = Palette.red))
             BasicText(
-                "Deletes Linux apps, coding agents, packages and everything in /root, like Downloads. " +
-                    "Themes, wallpapers, widgets and your home screen stay.",
+                "Deletes Linux apps, packages and everything in /root, like Downloads. " +
+                    "Wallpapers and your home screen stay.",
                 style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small),
             )
             Row {
