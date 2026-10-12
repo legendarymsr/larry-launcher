@@ -60,7 +60,12 @@ fun interface Deferred {
 class Client(
     val server: WaylandServer,
     private val fd: Int,
+    /** Connected on the unscaled socket: see [WaylandServer]. */
+    val unscaled: Boolean = false,
 ) {
+    /** The wl_output scale this client sees; logical sizes sent to it are physical / this. */
+    val scale get() = if (unscaled) 1 else server.output.scale
+
     val objects = HashMap<Int, Resource>()
     private val fds = ArrayDeque<Int>()
 

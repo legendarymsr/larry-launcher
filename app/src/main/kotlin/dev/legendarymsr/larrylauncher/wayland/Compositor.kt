@@ -119,7 +119,7 @@ class Surface(
         // wl_surface v6: tell the client our integer scale before its first frame, so foot renders
         // crisp at that scale from the start instead of at 1 and getting upscaled.
         if (version >= 6) {
-            send(event(2).int(client.server.output.scale))
+            send(event(2).int(client.scale))
             send(event(3).uint(0))
         }
     }

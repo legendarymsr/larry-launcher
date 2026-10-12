@@ -142,7 +142,8 @@ class WindowManager : WindowManagerHooks {
 
     private fun configure(window: XdgToplevel) {
         val (w, h) = sizes[window] ?: return
-        window.configure(w / scale, h / scale, window === focused)
+        val s = window.client.scale
+        window.configure(w / s, h / s, window === focused)
     }
 
     fun pointerMove(hit: SurfaceHit?) = server.postInput { pointerMotion(hit?.surface, hit?.x ?: 0f, hit?.y ?: 0f) }

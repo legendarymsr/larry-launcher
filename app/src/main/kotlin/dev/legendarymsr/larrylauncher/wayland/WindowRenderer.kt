@@ -172,7 +172,7 @@ class WindowRenderer(
 
     /** The window's surfaces bottom to top, then its popups; call with the server locked. */
     private fun buildScene(): List<Layer> {
-        val scale = server.output.scale
+        val scale = window.client.scale
         val layers = ArrayList<Layer>()
         val g = window.xdg.effectiveGeometry
         addTree(layers, window.surface, -g.x * scale, -g.y * scale, scale, inPopup = false)

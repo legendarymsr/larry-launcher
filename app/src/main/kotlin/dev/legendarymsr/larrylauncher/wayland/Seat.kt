@@ -26,7 +26,7 @@ class OutputResource(
         )
         send(event(1).uint(3).int(o.widthPx).int(o.heightPx).int(60000)) // current | preferred
         if (version >= 2) {
-            send(event(3).int(o.scale))
+            send(event(3).int(client.scale))
             send(event(2))
         }
     }

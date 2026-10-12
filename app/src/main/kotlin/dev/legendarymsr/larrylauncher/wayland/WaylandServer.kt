@@ -38,6 +38,8 @@ interface WindowManagerHooks {
 class WaylandServer(
     private val socketPath: String,
     val windowManager: WindowManagerHooks,
+    /** Clients here get wl_output scale 1 and sizes in physical pixels: nested compositors (niri) scale themselves. */
+    private val unscaledSocketPath: String? = null,
 ) {
     val globals =
         listOf(
@@ -72,6 +74,7 @@ class WaylandServer(
 
     private val serial = AtomicInteger(1)
     private var listenFd = -1
+    private var unscaledFd = -1
 
     fun nextSerial() = serial.getAndIncrement()
 
@@ -79,6 +82,17 @@ class WaylandServer(
         listenFd = Native.listen(socketPath)
         check(listenFd >= 0) { "cannot listen on $socketPath: errno ${-listenFd}" }
         Log.i(TAG, "listening on $socketPath")
+        acceptLoop(listenFd, unscaled = false)
+        unscaledSocketPath?.let { path ->
+            unscaledFd = Native.listen(path)
+            if (unscaledFd >= 0) acceptLoop(unscaledFd, unscaled = true) else Log.w(TAG, "cannot listen on $path: errno ${-unscaledFd}")
+        }
+    }
+
+    private fun acceptLoop(
+        listenFd: Int,
+        unscaled: Boolean,
+    ) {
         thread(name = "wl-accept", isDaemon = true) {
             while (true) {
                 val fd = Native.accept(listenFd)
@@ -88,7 +102,7 @@ class WaylandServer(
                     SystemClock.sleep(100)
                     continue
                 }
-                val client = Client(this, fd)
+                val client = Client(this, fd, unscaled)
                 synchronized(this) { clients += client }
                 thread(name = "wl-client-$fd", isDaemon = true) { client.run() }
             }

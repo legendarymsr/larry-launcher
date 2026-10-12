@@ -18,7 +18,7 @@ class DefaultSetTest {
         assertFalse("gui-wm/niri **" in DESKTOP_INSTALL_SCRIPT)
         assertTrue("=gui-wm/niri-9999" in DESKTOP_INSTALL_SCRIPT)
         assertTrue("media-libs/freetype harfbuzz png" in DESKTOP_INSTALL_SCRIPT)
-        assertTrue("spawn \"foot\"" in NIRI_CONFIG)
+        assertTrue("spawn \"foot\"" in niriConfig(2.625f))
         assertTrue("media-libs/libglvnd X" in DESKTOP_INSTALL_SCRIPT)
         assertTrue("gui-apps/fuzzel ~amd64 ~arm64" in DESKTOP_INSTALL_SCRIPT)
     }

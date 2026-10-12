@@ -71,7 +71,7 @@ class Runtime(
 ) {
     val chroot = Chroot(context)
     val wm = WindowManager()
-    val server = WaylandServer(chroot.waylandSocket.path, wm).also { wm.server = it }
+    val server = WaylandServer(chroot.waylandSocket.path, wm, chroot.niriSocket.path).also { wm.server = it }
     val keyboard = KeyboardBridge(wm)
     val terminals = TerminalTiles(this)
     val terminalFont = TerminalFont(context, chroot)
@@ -491,7 +491,7 @@ class Runtime(
     fun startDesktop() {
         niriWindow?.let { return showWindow(it) }
         desktop.lastRun = emptyList()
-        launch(desktop.startCommand(gpu = chroot.graphicsEnv != dev.legendarymsr.larrylauncher.linux.Gpu.SOFTWARE_ENV), onFailure = { desktop.lastRun = it })
+        launch(desktop.startCommand(density = context.resources.displayMetrics.density, gpu = chroot.graphicsEnv != dev.legendarymsr.larrylauncher.linux.Gpu.SOFTWARE_ENV), onFailure = { desktop.lastRun = it })
     }
 
     fun stopDesktop() = launch(dev.legendarymsr.larrylauncher.linux.Desktop.STOP_COMMAND)

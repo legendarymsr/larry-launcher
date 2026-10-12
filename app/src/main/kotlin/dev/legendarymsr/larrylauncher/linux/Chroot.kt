@@ -27,6 +27,9 @@ class Chroot(
     /** Bound to XDG_RUNTIME_DIR inside the guest; holds the Wayland socket and the bridges' FIFOs. */
     val runtimeDir = File(filesDir, "xdg")
     val waylandSocket = File(runtimeDir, "wayland-0")
+
+    /** Scale-1 socket for nested niri, which applies the display density itself. */
+    val niriSocket = File(runtimeDir, "wayland-niri")
     val keymap = File(filesDir, "keymap.xkb")
 
     /** The guest user's home, /root, and the launcher's places in it. */

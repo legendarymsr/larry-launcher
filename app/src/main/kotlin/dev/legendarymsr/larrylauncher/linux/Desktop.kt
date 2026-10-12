@@ -54,22 +54,50 @@ internal val DESKTOP_INSTALL_SCRIPT =
         emergeInstall(DESKTOP_PACKAGES),
     ).joinToString(" && ")
 
-/** A small niri config: foot and fuzzel, niri-style column/workspace keys. Nested, niri's Mod is Alt. */
-internal val NIRI_CONFIG =
+/** First line of a config the launcher owns and rewrites each start; delete it to keep your own edits. */
+internal const val NIRI_CONFIG_MARKER = "// larrylauncher: managed"
+
+/** niri accepts fractional output scales; Android's density (2.625 etc.), clamped to sane values. */
+internal fun niriScale(density: Float): String {
+    val d = if (density.isNaN()) 2f else density.coerceIn(1f, 4f)
+    return "%.3f".format(java.util.Locale.ROOT, d).trimEnd('0').trimEnd('.').let { if ('.' in it) it else "$it.0" }
+}
+
+/**
+ * The niri config: the nested winit output gets the phone's density as its scale (niri connects
+ * on the launcher's scale-1 socket with a full-resolution window, so nothing double-scales),
+ * one full-width column at a time, and every bind on both Mod (Alt when nested) and Super.
+ */
+internal fun niriConfig(density: Float): String =
     """
-    // larrylauncher: written once; edit freely.
+    $NIRI_CONFIG_MARKER (rewritten every start; delete this line to keep your edits)
+    output "winit" {
+        scale ${niriScale(density)}
+    }
     prefer-no-csd
+    cursor {
+        xcursor-size 24
+    }
     layout {
-        gaps 12
+        gaps 8
         center-focused-column "on-overflow"
+        default-column-width { proportion 1.0; }
+        preset-column-widths {
+            proportion 0.5
+            proportion 1.0
+        }
         focus-ring {
-            width 3
+            width 2
             active-color "#7aa2f7"
             inactive-color "#414868"
         }
     }
     binds {
-        Mod+Return { spawn "foot"; }
+    LINES
+    }
+    """.trimIndent().replace("LINES", BINDS) + "\n"
+
+private val BINDS = """        Mod+Return { spawn "foot"; }
         Mod+T { spawn "foot"; }
         Mod+D { spawn "fuzzel"; }
         Mod+Q { close-window; }
@@ -81,9 +109,22 @@ internal val NIRI_CONFIG =
         Mod+Shift+L { move-column-right; }
         Mod+R { switch-preset-column-width; }
         Mod+F { maximize-column; }
+        Mod+Shift+F { fullscreen-window; }
         Mod+Shift+E { quit skip-confirmation=true; }
-    }
-    """.trimIndent() + "\n"
+        Super+Return { spawn "foot"; }
+        Super+T { spawn "foot"; }
+        Super+D { spawn "fuzzel"; }
+        Super+Q { close-window; }
+        Super+H { focus-column-left; }
+        Super+L { focus-column-right; }
+        Super+J { focus-workspace-down; }
+        Super+K { focus-workspace-up; }
+        Super+Shift+H { move-column-left; }
+        Super+Shift+L { move-column-right; }
+        Super+R { switch-preset-column-width; }
+        Super+F { maximize-column; }
+        Super+Shift+F { fullscreen-window; }
+        Super+Shift+E { quit skip-confirmation=true; }"""
 
 /**
  * The optional Gentoo desktop: real niri, run as a nested Wayland client of the launcher's own
@@ -120,7 +161,10 @@ class Desktop(
      * to llvmpipe on the wayland platform, whose swrast path presents through wl_shm, the only
      * buffer type the launcher's compositor takes. Logs and backtraces go to the launch output.
      */
-    fun startCommand(gpu: Boolean): String = niriStartCommand(gpu)
+    fun startCommand(
+        density: Float,
+        gpu: Boolean,
+    ): String = niriStartCommand(gpu, density)
 
     companion object {
         const val STOP_COMMAND = "pkill -x niri"
@@ -133,9 +177,12 @@ internal val SOFTWARE_GL_ENV = listOf("LIBGL_ALWAYS_SOFTWARE=1", "GALLIUM_DRIVER
 /** util-linux unshare makes / private by default, which fails in the chroot (/ isn't a mount point). */
 internal const val UNSHARE_MOUNT = "unshare -m --propagation unchanged"
 
-internal fun niriStartCommand(gpu: Boolean): String {
+internal fun niriStartCommand(
+    gpu: Boolean,
+    density: Float = 2f,
+): String {
     val env =
-        listOf("EGL_PLATFORM=wayland", "RUST_BACKTRACE=1", "RUST_LOG=niri=info,smithay=warn", "NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY=1", "XCURSOR_SIZE=24", "LP_NATIVE_VECTOR_WIDTH=128") +
+        listOf("WAYLAND_DISPLAY=\$w", "EGL_PLATFORM=wayland", "RUST_BACKTRACE=1", "RUST_LOG=niri=info,smithay=warn", "NIRI_DISABLE_SYSTEM_MANAGER_NOTIFY=1", "XCURSOR_SIZE=24", "LP_NATIVE_VECTOR_WIDTH=128") +
             if (gpu) emptyList() else listOf("LIBGL_ALWAYS_SOFTWARE=1")
     val run = "env ${env.joinToString(" ")}"
     // mesa is built -llvm now: softpipe, no JIT. An install still on the old mesa[llvm] (rebuild
@@ -151,7 +198,10 @@ internal fun niriStartCommand(gpu: Boolean): String {
         "if portageq has_version / 'media-libs/mesa[llvm]' >/dev/null 2>&1; then echo 'larrylauncher: mesa still has llvm (rebuild pending), llvmpipe'; $masked; " +
             "else echo 'larrylauncher: softpipe'; exec $run GALLIUM_DRIVER=softpipe niri -c \"\$c\"; fi"
     val script =
-        "c=\$HOME/.config/niri/config.kdl; [ -s \"\$c\" ] || { mkdir -p \"\${c%/*}\" && printf '%s' ${shellQuote(NIRI_CONFIG)} > \"\$c\"; }; " +
+        "c=\$HOME/.config/niri/config.kdl; mkdir -p \"\${c%/*}\"; " +
+            // Ours (managed marker, or the old write-once seed) is rewritten with the current density; a user's own is kept.
+            "if [ ! -s \"\$c\" ] || head -n 1 \"\$c\" | grep -q '^// larrylauncher:'; then printf '%s' ${shellQuote(niriConfig(density))} > \"\$c\"; fi; " +
+            "w=wayland-niri; [ -S \"\$XDG_RUNTIME_DIR/\$w\" ] || { echo 'larrylauncher: no wayland-niri socket, using the scaled one'; w=\$WAYLAND_DISPLAY; }; " +
             "niri validate -c \"\$c\" 2>&1 | tail -n 5; " +
             (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else "exec 2>&1; $software")
     return "sh -c " + shellQuote(script)
