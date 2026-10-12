@@ -36,8 +36,14 @@ class GuestThemeConfig(
             val colors = if (tpl.name == "foot.ini.tpl") footColors(theme.colors) else theme.colors
             if (!out.exists()) out.writeText(Templates.render(tpl.readText(), colors))
         }
+        // No template set ships with the app any more: foot's colors are generated from the palette.
+        val foot = File(themeDir, "foot.ini")
+        if (!foot.exists()) foot.writeText(footTheme(footColors(theme.colors)))
         symlink("${Chroot.GUEST_HOME}/.local/state/larrylauncher/current/theme/btop.theme", File(home, ".config/btop/themes/current.theme"))
     }
+
+    /** Whether the theme file foot.ini includes is on disk. */
+    fun hasFootTheme(): Boolean = File(currentDir, "theme/foot.ini").isFile
 
     /** Mirrors the ~/.local/state/larrylauncher/current/background symlink. */
     fun linkBackground(file: File) {
@@ -124,7 +130,25 @@ class GuestThemeConfig(
         runCatching { chroot.run(script) }
     }
 
-    private companion object {
+    internal companion object {
+        /** foot's [colors] section for a resolved palette; every key falls back so it always parses. */
+        fun footTheme(c: Map<String, String>): String {
+            fun hex(key: String, fallback: String) = (c[key] ?: fallback).removePrefix("#")
+            val bg = hex("background", "1a1b26")
+            val fg = hex("foreground", "a9b1d6")
+            val ansi = listOf("black", "red", "green", "yellow", "blue", "magenta", "cyan", "white")
+            val defaults = listOf("15161e", "f7768e", "9ece6a", "e0af68", "7aa2f7", "bb9af7", "7dcfff", "a9b1d6")
+            return buildString {
+                append("# larrylauncher: generated from the theme's colors\n[colors]\n")
+                append("foreground=$fg\nbackground=$bg\n")
+                append("cursor=$bg ${hex("cursor", "#$fg")}\n")
+                append("selection-foreground=${hex("selection_foreground", "#$bg")}\n")
+                append("selection-background=${hex("selection_background", "#" + hex("accent", "7aa2f7"))}\n")
+                for (i in 0..7) append("regular$i=${hex("color$i", "#" + hex(ansi[i], defaults[i]))}\n")
+                for (i in 0..7) append("bright$i=${hex("color${i + 8}", "#" + hex("bright_" + ansi[i], defaults[i]))}\n")
+            }
+        }
+
         /**
          * Themes pick a selection a shade off the background, made for a mouse on a big screen;
          * on a phone it's barely visible. foot selects in the accent instead, as inverted text.

@@ -260,12 +260,29 @@ class ThemeStore(
      * skipped while Linux wasn't there. The caller syncs [managed] afterwards.
      */
     suspend fun renderGuest() {
-        val theme = current ?: return
+        if (themes.isEmpty()) themes = withContext(Dispatchers.IO) { scan() }
+        val theme = guestTheme() ?: return
         withContext(Dispatchers.IO) {
             guest.render(theme)
             background?.let(guest::linkBackground)
         }
         prefs.edit().putString(RENDERED_BY, appStamp(context)).apply()
+    }
+
+    /** The theme the guest should have: the applied one, else the picked one, else the default. */
+    private fun guestTheme(): LauncherTheme? =
+        current ?: themes.firstOrNull { it.name == picked } ?: themes.firstOrNull { it.name == DEFAULT_THEME } ?: themes.firstOrNull()
+
+    /**
+     * Before a Linux app starts: foot.ini includes current/theme/foot.ini and
+     * refuses to start without it, so render the theme if it's missing. Blocking.
+     */
+    fun ensureGuest() {
+        if (!isLinux() || guest.hasFootTheme()) return
+        runCatching {
+            if (themes.isEmpty()) themes = scan()
+            guestTheme()?.let(guest::render)
+        }.onFailure { Log.e(TAG, "guest theme not written", it) }
     }
 
     suspend fun setBackground(file: File?) {

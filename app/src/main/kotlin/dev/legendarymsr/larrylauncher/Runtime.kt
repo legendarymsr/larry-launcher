@@ -551,6 +551,7 @@ class Runtime(
         Log.i(TAG, "launch: $command")
         thread(name = "guest-launch", isDaemon = true) {
             chroot.allowWayland()
+            themes.ensureGuest()
             val tail = OutputTail()
             val windowsBefore = wm.toplevelsCreated
             val started = System.currentTimeMillis()
