@@ -8,14 +8,14 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Atoms the optional Gentoo desktop adds; none of them are in the default install. */
-internal val DESKTOP_PACKAGES = listOf("gui-wm/niri", "gui-apps/fuzzel", "app-misc/fastfetch") + BROWSER_PACKAGES
-
 /**
  * Dillo is FLTK on X11; niri runs X clients through xwayland-satellite (GURU), which it spawns
  * itself when it is on PATH and exports DISPLAY. Both are keyworded ~amd64 only, like niri.
  */
 internal val BROWSER_PACKAGES = listOf("www-client/dillo", "x11-base/xwayland", "gui-apps/xwayland-satellite")
+
+/** Atoms the optional Gentoo desktop adds; none of them are in the default install. */
+internal val DESKTOP_PACKAGES = listOf("gui-wm/niri", "gui-apps/fuzzel", "app-misc/fastfetch") + BROWSER_PACKAGES
 
 internal val BROWSER_KEYWORDS =
     listOf("www-client/dillo ~amd64 ~arm64", "gui-apps/xwayland-satellite ~amd64 ~arm64", "x11-libs/fltk ~amd64 ~arm64")

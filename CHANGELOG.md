@@ -3,7 +3,7 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
-## Unreleased
+## 0.7.0 (versionCode 12) – 2026-10-13
 
 - The Gentoo desktop installs Dillo with xwayland-satellite (niri starts it
   and sets DISPLAY); Super+B / Alt+B opens Dillo. Existing desktops get both
@@ -11,6 +11,8 @@ are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 - Each niri start clones legenddots into ~/legenddots once and runs its
   gentoo/chroot/dotfiles.sh, linking nvim, tmux, foot, fuzzel, fastfetch and
   Dillo configs.
+- Fixed a startup ordering bug in the desktop package list that broke the
+  build after the Dillo change.
 
 ## 0.6.0 (versionCode 11) – 2026-10-12
 

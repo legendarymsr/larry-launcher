@@ -1,0 +1,1 @@
+The Gentoo desktop gets the Dillo browser (Super+B) through xwayland-satellite, and legenddots configs for nvim, tmux, foot, fuzzel, fastfetch and Dillo are linked into the chroot home.
