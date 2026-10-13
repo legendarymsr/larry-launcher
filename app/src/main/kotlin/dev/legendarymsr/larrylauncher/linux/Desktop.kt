@@ -9,7 +9,19 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /** Atoms the optional Gentoo desktop adds; none of them are in the default install. */
-internal val DESKTOP_PACKAGES = listOf("gui-wm/niri", "gui-apps/fuzzel", "app-misc/fastfetch")
+internal val DESKTOP_PACKAGES = listOf("gui-wm/niri", "gui-apps/fuzzel", "app-misc/fastfetch") + BROWSER_PACKAGES
+
+/**
+ * Dillo is FLTK on X11; niri runs X clients through xwayland-satellite (GURU), which it spawns
+ * itself when it is on PATH and exports DISPLAY. Both are keyworded ~amd64 only, like niri.
+ */
+internal val BROWSER_PACKAGES = listOf("www-client/dillo", "x11-base/xwayland", "gui-apps/xwayland-satellite")
+
+internal val BROWSER_KEYWORDS =
+    listOf("www-client/dillo ~amd64 ~arm64", "gui-apps/xwayland-satellite ~amd64 ~arm64", "x11-libs/fltk ~amd64 ~arm64")
+
+/** fltk:1 needs X and xft for Dillo's fonts; Dillo without xembed (no plugin host here). */
+internal val BROWSER_USE_LINES = listOf("www-client/dillo ssl openssl -mbedtls -xembed", "x11-libs/fltk xft")
 
 /**
  * USE niri's dependency chain needs, matched to the arm64 binhost's own builds so they download
@@ -28,7 +40,7 @@ internal val DESKTOP_USE_LINES =
         "media-libs/harfbuzz glib truetype",
         "x11-libs/pango X introspection",
         "x11-libs/cairo X",
-    )
+    ) + BROWSER_USE_LINES
 
 internal val DESKTOP_USE = DESKTOP_USE_LINES.joinToString(" ") { shellQuote(it) }
 
@@ -48,7 +60,8 @@ internal val DESKTOP_INSTALL_SCRIPT =
         "find /etc/portage -name '._cfg*' -delete",
         // Released niri only: ~amd64 accepts the tagged ebuilds (they carry that keyword), never the
         // keyword-less live 9999 one, which is masked too.
-        "printf '%s\\n' 'gui-wm/niri ~amd64 ~arm64' 'gui-apps/fuzzel ~amd64 ~arm64' 'dev-lang/rust-bin ~arm64' 'virtual/rust ~arm64' > /etc/portage/package.accept_keywords/larrylauncher-desktop",
+        "printf '%s\\n' 'gui-wm/niri ~amd64 ~arm64' 'gui-apps/fuzzel ~amd64 ~arm64' 'dev-lang/rust-bin ~arm64' 'virtual/rust ~arm64' " +
+            BROWSER_KEYWORDS.joinToString(" ") { shellQuote(it) } + " > /etc/portage/package.accept_keywords/larrylauncher-desktop",
         "printf '%s\\n' '=gui-wm/niri-9999' > /etc/portage/package.mask/larrylauncher-desktop",
         "printf '%s\\n' $DESKTOP_USE > /etc/portage/package.use/larrylauncher-desktop",
         emergeInstall(DESKTOP_PACKAGES),
@@ -106,6 +119,7 @@ internal fun niriConfig(density: Float): String =
 private val BINDS = """        Mod+Return { spawn "foot"; }
         Mod+T { spawn "foot"; }
         Mod+D { spawn "fuzzel"; }
+        Mod+B { spawn "dillo"; }
         Mod+Q { close-window; }
         Mod+H { focus-column-left; }
         Mod+L { focus-column-right; }
@@ -120,6 +134,7 @@ private val BINDS = """        Mod+Return { spawn "foot"; }
         Super+Return { spawn "foot"; }
         Super+T { spawn "foot"; }
         Super+D { spawn "fuzzel"; }
+        Super+B { spawn "dillo"; }
         Super+Q { close-window; }
         Super+H { focus-column-left; }
         Super+L { focus-column-right; }
@@ -181,6 +196,9 @@ class Desktop(
     }
 }
 
+/** The user's dotfiles, cloned into the guest's home and linked by its gentoo/chroot/dotfiles.sh. */
+internal const val LEGENDDOTS_URL = "https://github.com/legendarymsr/legenddots"
+
 /** Guest-wide software GL env, so niri (or any GL app) run from foot uses softpipe too. */
 internal val SOFTWARE_GL_ENV = listOf("LIBGL_ALWAYS_SOFTWARE=1", "GALLIUM_DRIVER=softpipe", "EGL_PLATFORM=wayland")
 
@@ -214,6 +232,14 @@ internal fun niriStartCommand(
             "w=wayland-niri; [ -S \"\$XDG_RUNTIME_DIR/\$w\" ] || { echo 'larrylauncher: no wayland-niri socket, using the scaled one'; w=\$WAYLAND_DISPLAY; }; " +
             // Older desktop installs predate fastfetch: fetch it in the background (best effort, binpkg if any).
             "command -v fastfetch >/dev/null 2>&1 || { echo 'larrylauncher: installing fastfetch in the background'; (emerge --quiet --noreplace --getbinpkg app-misc/fastfetch > /tmp/.larrylauncher-fastfetch.log 2>&1 &) ; }; " +
+            // Desktops installed before Dillo get it (and xwayland-satellite) in the background.
+            "command -v dillo >/dev/null 2>&1 && command -v xwayland-satellite >/dev/null 2>&1 || { [ -f /etc/portage/package.accept_keywords/larrylauncher-desktop ] && " +
+            "! grep -q dillo /etc/portage/package.accept_keywords/larrylauncher-desktop && printf '%s\\n' ${BROWSER_KEYWORDS.joinToString(" ") { shellQuote(it) }} >> /etc/portage/package.accept_keywords/larrylauncher-desktop; " +
+            "[ -d /etc/portage/package.use ] && printf '%s\\n' ${BROWSER_USE_LINES.joinToString(" ") { shellQuote(it) }} > /etc/portage/package.use/larrylauncher-browser; " +
+            "echo 'larrylauncher: installing dillo in the background'; (emerge --quiet --noreplace --getbinpkg ${BROWSER_PACKAGES.joinToString(" ")} > /tmp/.larrylauncher-dillo.log 2>&1 &) ; }; " +
+            // legenddots: cloned once into ~/legenddots, then its chroot script (re)links nvim, tmux, foot, fuzzel, fastfetch, dillo.
+            "command -v git >/dev/null 2>&1 && ( { [ -d \"\$HOME/legenddots/.git\" ] || git clone -q --depth 1 $LEGENDDOTS_URL \"\$HOME/legenddots\"; } && " +
+            "sh \"\$HOME/legenddots/gentoo/chroot/dotfiles.sh\" > /tmp/.larrylauncher-dotfiles.log 2>&1 & ) ; " +
             "niri validate -c \"\$c\" 2>&1 | tail -n 5; " +
             (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else "exec 2>&1; $software")
     return "sh -c " + shellQuote(script)

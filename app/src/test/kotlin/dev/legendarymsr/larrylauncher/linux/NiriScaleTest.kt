@@ -19,6 +19,7 @@ class NiriScaleTest {
         assertTrue(c.take(80), c.startsWith(NIRI_CONFIG_MARKER))
         assertTrue("output \"winit\" {\n    scale 2.75\n}" in c)
         assertTrue("Super+Return { spawn \"foot\"; }" in c)
+        assertTrue("Super+B { spawn \"dillo\"; }" in c)
         assertTrue("Mod+Shift+F { fullscreen-window; }" in c)
         assertTrue("default-column-width { proportion 1.0; }" in c)
     }

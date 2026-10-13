@@ -22,6 +22,8 @@ class DefaultSetTest {
         assertTrue("media-libs/libglvnd X" in DESKTOP_INSTALL_SCRIPT)
         assertTrue("gui-apps/fuzzel ~amd64 ~arm64" in DESKTOP_INSTALL_SCRIPT)
         assertTrue("app-misc/fastfetch" in DESKTOP_INSTALL_SCRIPT)
+        assertTrue("www-client/dillo ~amd64 ~arm64" in DESKTOP_INSTALL_SCRIPT)
+        assertTrue("gui-apps/xwayland-satellite" in DESKTOP_INSTALL_SCRIPT)
         assertTrue("spawn-at-startup \"foot\"" in niriConfig(2f))
     }
 
