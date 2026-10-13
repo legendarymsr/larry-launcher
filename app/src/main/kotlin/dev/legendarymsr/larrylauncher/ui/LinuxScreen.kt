@@ -136,6 +136,8 @@ private fun Installed(runtime: Runtime) {
             )
         }
     }
+    Spacer(Modifier.height(8.dp))
+    SwapRow(runtime)
     if (runtime.gpu.supported) {
         Spacer(Modifier.height(8.dp))
         GpuRow(runtime)
@@ -156,6 +158,38 @@ private fun Installed(runtime: Runtime) {
             )
             Row {
                 BracketAction("remove", Palette.red, runtime::removeLinux)
+                BracketAction("cancel", Palette.muted) { confirm = false }
+            }
+        }
+    }
+}
+
+/** The root swap file on /data; see [dev.legendarymsr.larrylauncher.linux.Swap]. */
+@Composable
+private fun SwapRow(runtime: Runtime) {
+    val swap = runtime.swap
+    LaunchedEffect(Unit) { runtime.refreshSwap() }
+    var confirm by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().clip(LauncherStyle.shape(12.dp)).background(Palette.surface).padding(14.dp)) {
+        BasicText("swap file", style = Mono.copy(fontSize = TextSize.Item))
+        BasicText(
+            if (swap.busy) "working… (making a big file takes a minute)" else swap.status,
+            style = Mono.copy(color = if (swap.status.startsWith("on")) Palette.green else Palette.muted, fontSize = TextSize.Small),
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            for (gb in dev.legendarymsr.larrylauncher.linux.Swap.SIZES) {
+                val label = if (gb == 0) "off" else "${gb}g"
+                BracketAction(label, if (gb == swap.sizeGb) Palette.green else Palette.accent) {
+                    if (!swap.busy) runtime.setSwap(gb)
+                }
+            }
+        }
+        if (!confirm) {
+            BracketAction("remove swap file", Palette.red) { confirm = true }
+        } else {
+            Row {
+                BracketAction("delete it", Palette.red) { confirm = false; if (!swap.busy) runtime.removeSwap() }
                 BracketAction("cancel", Palette.muted) { confirm = false }
             }
         }

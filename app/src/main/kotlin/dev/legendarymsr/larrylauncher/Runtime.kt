@@ -93,6 +93,7 @@ class Runtime(
     val widgets = WidgetEngine(context, chroot, this)
     val updates = SystemUpdates(chroot, portage)
     val gpu = Gpu(context, chroot)
+    val swap = dev.legendarymsr.larrylauncher.linux.Swap(context, chroot)
 
     /** The launcher's own provided files (default widgets, their docs); see [Provisioner]. */
     private val launcherFiles = Provisioner(chroot.filesDir, LauncherData.LAUNCHER_MANIFEST, listOf(widgets::managed))
@@ -224,6 +225,8 @@ class Runtime(
                             // Leftovers of an old run must not keep Linux from starting.
                             runCatching { chroot.prepare() }.onFailure { Log.e(TAG, "prepare", it) }
                             prepared = true
+                            // Before any emerge: big compiles are what runs out of memory.
+                            if (bootstrap.isInstalled || chroot.rootfs.isDirectory) runCatching { swap.apply() }.onFailure { Log.e(TAG, "swap", it) }
                         }
                     }
                     work()
@@ -339,6 +342,21 @@ class Runtime(
     fun setGpu(on: Boolean) {
         if (!linux) return
         if (on) scope.launch { gpu.turnOn() } else gpu.turnOff()
+    }
+
+    /** Sets the swap file size in GiB (0 turns it off) and applies it now. */
+    fun setSwap(gb: Int) {
+        swap.setSize(gb)
+        scope.launch(Dispatchers.IO) { swap.apply() }
+    }
+
+    fun removeSwap() {
+        swap.setSize(0)
+        scope.launch(Dispatchers.IO) { swap.remove() }
+    }
+
+    fun refreshSwap() {
+        scope.launch(Dispatchers.IO) { swap.refresh() }
     }
 
     /** Runs every pending update (packages); the drawer then lists what changed. */

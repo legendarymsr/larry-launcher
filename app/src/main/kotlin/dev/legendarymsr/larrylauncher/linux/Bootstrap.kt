@@ -38,12 +38,21 @@ internal val PACKAGES =
     )
 
 /** Appended to make.conf: binary packages first, and no Portage sandboxes that need namespaces Android kernels lack. */
-private val MAKE_CONF =
+internal fun makeConf(jobs: Int) =
     """
     # larrylauncher
     FEATURES="${'$'}{FEATURES} getbinpkg binpkg-request-signature -ipc-sandbox -network-sandbox -pid-sandbox -mount-sandbox"
     EMERGE_DEFAULT_OPTS="--getbinpkg --with-bdeps=n"
+    MAKEOPTS="-j$jobs -l$jobs"
     """.trimIndent()
+
+/** Parallel compile jobs: one per 2 GiB of RAM, at most one per core, so big C++ builds (mesa, Rust) don't get OOM-killed. */
+internal fun makeJobs(memKb: Long, cpus: Int): Int = (memKb / (2L * 1024 * 1024)).toInt().coerceIn(1, cpus.coerceAtLeast(1))
+
+private fun deviceMakeJobs(): Int {
+    val kb = runCatching { java.io.File("/proc/meminfo").readLines().first { it.startsWith("MemTotal:") }.split(Regex("\\s+"))[1].toLong() }.getOrDefault(4L * 1024 * 1024)
+    return makeJobs(kb, java.lang.Runtime.getRuntime().availableProcessors())
+}
 
 /**
  * USE matching the official arm64 binhost so its packages are used as-is. libxkbcommon adds tools for
@@ -245,7 +254,7 @@ class Bootstrap(
         listOf(
             Step("rootfs", Stage.Download, "Downloading Gentoo", network = true) { installRootfs() },
             Step("signature-1", Stage.Configure, "Checking the stage3 signature", network = false, optional = true) { verifySignature() },
-            Step("etc-1", Stage.Configure, "Configuring the system", network = false) {
+            Step("etc-2", Stage.Configure, "Configuring the system", network = false) {
                 writeHostConfig()
                 guest(configureScript())
             },
@@ -605,7 +614,7 @@ class Bootstrap(
             "printf '[gentoobinhost]\\npriority = 9999\\nsync-uri = $BINHOST\\n' > /etc/portage/binrepos.conf/gentoobinhost.conf",
             PACKAGE_USE_SCRIPT,
             "sed -i '/^# larrylauncher\$/,\$d' /etc/portage/make.conf",
-            "printf '%s\\n' ${shellQuote(MAKE_CONF)} >> /etc/portage/make.conf",
+            "printf '%s\\n' ${shellQuote(makeConf(deviceMakeJobs()))} >> /etc/portage/make.conf",
         ).joinToString(" && ")
 
     private fun compileKeymap() {
