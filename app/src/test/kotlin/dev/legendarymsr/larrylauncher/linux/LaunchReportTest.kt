@@ -54,7 +54,7 @@ class LaunchReportTest {
         val out = p.inputStream.bufferedReader().readText()
         p.waitFor()
         assertTrue(out, out.contains("rc=1"))
-        assertTrue(out, out.contains("xwayland-satellite is not installed") || out.contains("still building"))
+        assertTrue(out, out.contains("xwayland-satellite is not installed"))
     }
 
     @Test fun summaryPrefersTheXServerReason() {

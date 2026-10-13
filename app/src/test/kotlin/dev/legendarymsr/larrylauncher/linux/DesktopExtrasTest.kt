@@ -24,7 +24,7 @@ class DesktopExtrasTest {
 
     @Test fun scriptInstallsExtrasAndWaitsForOlderRuns() {
         assertTrue("gui-apps/xwayland-satellite" in EXTRAS_SCRIPT)
-        assertTrue("pgrep -f 'emerge.*xwayland-satellite'" in EXTRAS_SCRIPT)
+        assertTrue("pgrep -f '[e]merge --quiet --noreplace --getbinpkg www-client/dillo'" in EXTRAS_SCRIPT)
         assertTrue(LEGENDDOTS_URL in EXTRAS_SCRIPT)
     }
 

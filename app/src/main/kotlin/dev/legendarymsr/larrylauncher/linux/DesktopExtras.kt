@@ -53,7 +53,7 @@ internal val EXTRAS_SCRIPT =
         "mkdir -p /etc/portage/package.accept_keywords /etc/portage/package.use",
         "printf '%s\\n' ${BROWSER_KEYWORDS.joinToString(" ") { shellQuote(it) }} > /etc/portage/package.accept_keywords/larrylauncher-browser",
         "printf '%s\\n' ${BROWSER_USE_LINES.joinToString(" ") { shellQuote(it) }} > /etc/portage/package.use/larrylauncher-browser",
-        "{ while pgrep -f 'emerge.*xwayland-satellite' >/dev/null 2>&1; do echo 'waiting for an earlier background emerge'; sleep 10; done; true; }",
+        "{ while pgrep -f '[e]merge --quiet --noreplace --getbinpkg www-client/dillo' >/dev/null 2>&1; do echo 'waiting for an earlier background emerge'; sleep 10; done; true; }",
         emergeInstall(BROWSER_PACKAGES),
         "{ command -v git >/dev/null 2>&1 && { [ -d \"\$HOME/legenddots/.git\" ] || git clone -q --depth 1 $LEGENDDOTS_URL \"\$HOME/legenddots\"; } && " +
             "sh \"\$HOME/legenddots/gentoo/chroot/dotfiles.sh\" && echo 'legenddots linked' || echo 'legenddots: skipped'; true; }",

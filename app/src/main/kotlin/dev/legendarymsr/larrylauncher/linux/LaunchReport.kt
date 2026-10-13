@@ -58,7 +58,7 @@ internal val ENSURE_X =
     "xup() { [ -S /tmp/.X11-unix/X0 ] && [ -f /tmp/.X0-lock ] && kill -0 \"\$(tr -dc 0-9 < /tmp/.X0-lock)\" 2>/dev/null; }; " +
         "ensurex() { if ! xup; then " +
         "if ! command -v xwayland-satellite >/dev/null 2>&1; then " +
-        "if pgrep -f 'emerge.*xwayland-satellite' >/dev/null 2>&1; then echo 'larrylauncher: xwayland-satellite is still installing (progress: settings › linux)'; " +
+        "if pgrep -f '[e]merge.*xwayland-satellite' >/dev/null 2>&1; then echo 'larrylauncher: xwayland-satellite is still installing (progress: settings › linux)'; " +
         "else echo 'larrylauncher: xwayland-satellite is not installed yet (see settings › linux)'; fi; return 1; fi; " +
         "command -v Xwayland >/dev/null 2>&1 || { echo 'larrylauncher: Xwayland (x11-base/xwayland) is not installed'; return 1; }; " +
         "pkill -f 'xwayland-satellite :0' 2>/dev/null; rm -f /tmp/.X0-lock /tmp/.X11-unix/X0; mkdir -p /tmp/.X11-unix; chmod 1777 /tmp/.X11-unix; " +
