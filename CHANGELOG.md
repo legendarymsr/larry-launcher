@@ -3,6 +3,17 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 0.7.1 (versionCode 13) – 2026-10-13
+
+- X11 apps (Dillo) launched from the app list failed with "Can't open
+  display": they ran on the launcher's own compositor with no DISPLAY. While
+  niri runs, launches now join its session (niri's Wayland socket and
+  DISPLAY=:0); niri's managed config starts xwayland-satellite on :0 when
+  niri doesn't already, and exports DISPLAY to everything it spawns.
+- Launching an X11 app without the desktop running now says to start the
+  Gentoo desktop first.
+- FLTK's UI designer (fluid) is hidden from the app list.
+
 ## 0.7.0 (versionCode 12) – 2026-10-13
 
 - The Gentoo desktop installs Dillo with xwayland-satellite (niri starts it

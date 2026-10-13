@@ -28,6 +28,25 @@ class LaunchReportTest {
     @Test fun summaryExplainsMissingSocket() =
         assertTrue(LaunchFailure("foot", NO_WAYLAND, 0, emptyList()).summary().contains("Wayland socket"))
 
+    @Test fun summaryExplainsMissingXDisplay() =
+        assertTrue(LaunchFailure("dillo", 1, 2, listOf("Can't open display: ")).summary().contains("start the Gentoo desktop"))
+
+    @Test fun niriConfigStartsXwaylandAndExportsDisplay() {
+        val c = niriConfig(2f)
+        assertTrue("exec xwayland-satellite :0" in c)
+        assertTrue("DISPLAY \":0\"" in c)
+        assertTrue(NIRI_SESSION_FILE in c)
+    }
+
+    @Test fun launchCommandStaysOnLauncherWithoutNiri() {
+        val dir = Files.createTempDirectory("rt").toFile()
+        val sock = File(dir, "wayland-0")
+        ProcessBuilder("python3", "-c", "import socket,sys;s=socket.socket(socket.AF_UNIX);s.bind(sys.argv[1])", sock.path).start().waitFor()
+        val (code, out) = sh(launchCommand("sh -c 'echo \"[\$WAYLAND_DISPLAY]\"'"), dir)
+        assertEquals(0, code)
+        assertEquals("[wayland-0]\n", out)
+    }
+
     private fun sh(
         script: String,
         runtime: File,

@@ -9,8 +9,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Dillo is FLTK on X11; niri runs X clients through xwayland-satellite (GURU), which it spawns
- * itself when it is on PATH and exports DISPLAY. Both are keyworded ~amd64 only, like niri.
+ * Dillo is FLTK on X11; niri runs X clients through xwayland-satellite (GURU). Newer niri spawns it
+ * itself when it is on PATH; the managed config also starts it on :0 when nothing holds that display.
+ * Both are keyworded ~amd64 only, like niri.
  */
 internal val BROWSER_PACKAGES = listOf("www-client/dillo", "x11-base/xwayland", "gui-apps/xwayland-satellite")
 
@@ -67,6 +68,22 @@ internal val DESKTOP_INSTALL_SCRIPT =
         emergeInstall(DESKTOP_PACKAGES),
     ).joinToString(" && ")
 
+/** Written by niri's startup hook: "<niri's WAYLAND_DISPLAY> <DISPLAY>", read by app launches. */
+internal const val NIRI_SESSION_FILE = ".larrylauncher-niri-session"
+
+/** The X display niri's session uses; launched apps and niri's children get it as DISPLAY. */
+internal const val NIRI_X_DISPLAY = ":0"
+
+/**
+ * Run once by niri at startup: records niri's own socket for app launches, then starts
+ * xwayland-satellite on :0 unless something live (niri's built-in integration) holds it.
+ */
+internal val NIRI_SESSION_HOOK =
+    "printf '%s %s\\n' \"\$WAYLAND_DISPLAY\" $NIRI_X_DISPLAY > \"\$XDG_RUNTIME_DIR/$NIRI_SESSION_FILE\"; " +
+        "command -v xwayland-satellite >/dev/null 2>&1 || exit 0; sleep 1; " +
+        "l=/tmp/.X0-lock; if [ -f \$l ] && kill -0 \"\$(tr -dc 0-9 < \$l)\" 2>/dev/null; then exit 0; fi; " +
+        "rm -f \$l /tmp/.X11-unix/X0; mkdir -p /tmp/.X11-unix; chmod 1777 /tmp/.X11-unix; exec xwayland-satellite $NIRI_X_DISPLAY"
+
 /** First line of a config the launcher owns and rewrites each start; delete it to keep your own edits. */
 internal const val NIRI_CONFIG_MARKER = "// larrylauncher: managed"
 
@@ -88,11 +105,13 @@ internal fun niriConfig(density: Float): String =
         scale ${niriScale(density)}
     }
     prefer-no-csd
+    spawn-at-startup "sh" "-c" r#"HOOK"#
     spawn-at-startup "foot" "sh" "-c" "command -v fastfetch >/dev/null && fastfetch; exec bash -l"
     environment {
         XDG_CURRENT_DESKTOP "niri"
         XDG_SESSION_DESKTOP "niri"
         XDG_SESSION_TYPE "wayland"
+        DISPLAY "$NIRI_X_DISPLAY"
     }
     cursor {
         xcursor-size 24
@@ -114,7 +133,7 @@ internal fun niriConfig(density: Float): String =
     binds {
     LINES
     }
-    """.trimIndent().replace("LINES", BINDS) + "\n"
+    """.trimIndent().replace("LINES", BINDS).replace("HOOK", NIRI_SESSION_HOOK) + "\n"
 
 private val BINDS = """        Mod+Return { spawn "foot"; }
         Mod+T { spawn "foot"; }

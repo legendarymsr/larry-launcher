@@ -32,10 +32,10 @@ private val CURATED =
     )
 
 /**
- * Entries packages bring along that make no sense on a phone: avahi's browsers, foot's server/client pair, and keyboard-only editors.
+ * Entries packages bring along that make no sense on a phone: avahi's browsers, foot's server/client pair, and keyboard-only editors, and FLTK's UI designer (fluid, pulled in by Dillo).
  * They stay installed; the drawer just doesn't list them.
  */
-private val HIDDEN = listOf("avahi-discover", "bssh", "bvnc", "footclient", "foot-server", "vim", "nvim", "yazi")
+private val HIDDEN = listOf("avahi-discover", "bssh", "bvnc", "footclient", "foot-server", "vim", "nvim", "yazi", "fluid")
 
 /** The curated and hiding entries; ones the user edited are left alone. */
 fun defaultApps(applications: File): List<Managed> {

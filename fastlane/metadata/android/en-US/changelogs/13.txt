@@ -1,0 +1,3 @@
+- Dillo and other X11 apps launched from the app list now open inside the niri desktop (xwayland-satellite on :0, DISPLAY set)
+- Clear message when an X11 app is launched without the desktop running
+- fluid (FLTK's UI designer) hidden from the app list
