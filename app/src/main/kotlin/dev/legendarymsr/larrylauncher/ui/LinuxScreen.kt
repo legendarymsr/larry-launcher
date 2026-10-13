@@ -60,7 +60,10 @@ fun LinuxScreen(
             when (val s = state) {
                 LinuxState.Checking ->
                     if (runtime.linuxBusy) {
+                        val root by runtime.chroot.root.collectAsState()
                         BasicText("checking linux…", style = Mono.copy(color = Palette.muted))
+                        val phase = if (root == RootState.Waiting) "asking for root (check for a Magisk prompt)" else runtime.linuxPhase
+                        if (phase.isNotEmpty()) BasicText(phase, style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small))
                     } else {
                         // No job will move it on: show the steps and a retry instead of nothing.
                         LinuxProgress(LinuxState.stopped(s, "linux didn't start"), runtime::retryLinux)
@@ -173,7 +176,7 @@ private fun SwapRow(runtime: Runtime) {
     Column(Modifier.fillMaxWidth().clip(LauncherStyle.shape(12.dp)).background(Palette.surface).padding(14.dp)) {
         BasicText("swap file", style = Mono.copy(fontSize = TextSize.Item))
         BasicText(
-            if (swap.busy) "working… (making a big file takes a minute)" else swap.status,
+            if (swap.busy && !swap.status.startsWith("writing") && !swap.status.startsWith("resuming")) "working… ${swap.status}" else swap.status,
             style = Mono.copy(color = if (swap.status.startsWith("on")) Palette.green else Palette.muted, fontSize = TextSize.Small),
         )
         Spacer(Modifier.height(6.dp))
@@ -185,7 +188,9 @@ private fun SwapRow(runtime: Runtime) {
                 }
             }
         }
-        if (!confirm) {
+        if (swap.busy) {
+            BracketAction("stop writing (resume later)", Palette.muted) { runtime.cancelSwap() }
+        } else if (!confirm) {
             BracketAction("remove swap file", Palette.red) { confirm = true }
         } else {
             Row {

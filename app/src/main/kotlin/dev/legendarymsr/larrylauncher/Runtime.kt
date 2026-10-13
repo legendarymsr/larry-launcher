@@ -57,6 +57,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
@@ -139,6 +140,9 @@ class Runtime(
     /** A job is (or is about to be) moving [Bootstrap.state] on; when false, Checking is stale. */
     val linuxBusy get() = linuxJob?.isActive == true || !linuxChecked
 
+    /** What the Linux job is doing right now, under "checking linux…". */
+    var linuxPhase by mutableStateOf("")
+
     /** Set when something that needs Linux was asked for without it; the home screen opens the install sheet and clears it. */
     var linuxWanted by mutableStateOf(false)
 
@@ -220,15 +224,18 @@ class Runtime(
             scope.launch {
                 try {
                     setService(true)
-                    withContext(Dispatchers.IO) {
-                        if (!prepared) {
-                            // Leftovers of an old run must not keep Linux from starting.
-                            runCatching { chroot.prepare() }.onFailure { Log.e(TAG, "prepare", it) }
-                            prepared = true
-                            // Before any emerge: big compiles are what runs out of memory.
-                            if (bootstrap.isInstalled || chroot.rootfs.isDirectory) runCatching { swap.apply() }.onFailure { Log.e(TAG, "swap", it) }
+                    if (!prepared) {
+                        // Leftovers of an old run must not keep Linux from starting; a hung su must not either.
+                        linuxPhase = "cleaning up the last run"
+                        val prep = scope.async(Dispatchers.IO) { runCatching { chroot.prepare() }.onFailure { Log.e(TAG, "prepare", it) } }
+                        if (kotlinx.coroutines.withTimeoutOrNull(90_000) { prep.await() } == null) Log.w(TAG, "prepare timed out, starting anyway")
+                        prepared = true
+                        // Its own job: writing GiBs of zeros must never hold up Linux; progress shows in the swap row.
+                        if (bootstrap.isInstalled || chroot.rootfs.isDirectory) {
+                            scope.launch(Dispatchers.IO) { runCatching { swap.apply() }.onFailure { Log.e(TAG, "swap", it) } }
                         }
                     }
+                    linuxPhase = "starting linux"
                     work()
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     bootstrap.markStopped("stopped before it finished")
@@ -353,6 +360,10 @@ class Runtime(
     fun removeSwap() {
         swap.setSize(0)
         scope.launch(Dispatchers.IO) { swap.remove() }
+    }
+
+    fun cancelSwap() {
+        scope.launch(Dispatchers.IO) { swap.cancel() }
     }
 
     fun refreshSwap() {

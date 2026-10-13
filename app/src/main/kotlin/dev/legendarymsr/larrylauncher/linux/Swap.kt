@@ -42,7 +42,14 @@ class Swap(
     /** Turns the swap file off and deletes it. Blocking. */
     fun remove() = run(removeScript())
 
-    fun refresh() = run(STATUS_SCRIPT)
+    fun refresh() {
+        if (!busy) run(STATUS_SCRIPT)
+    }
+
+    /** Asks a running swap file write to stop after its current chunk; picking a size again resumes it. Blocking. */
+    fun cancel() {
+        if (busy && chroot.rootGranted) runCatching { chroot.rootShell("touch $FILE.cancel") }
+    }
 
     private fun run(script: String) {
         if (!chroot.rootGranted) return
@@ -50,7 +57,18 @@ class Swap(
             busy = true
             val out = mutableListOf<String>()
             try {
-                val code = runCatching { chroot.rootShell(script) { out += it; Log.i(TAG, it) } }.getOrElse { out += (it.message ?: "$it"); -1 }
+                val code = runCatching {
+                    chroot.rootShell(script) {
+                        out += it
+                        Log.i(TAG, it)
+                        val m = PROGRESS.matchEntire(it)
+                        status =
+                            if (m != null) {
+                                val (done, total) = m.destructured
+                                "writing swap file: ${done.toLong() / 1024.0} of ${total.toLong() / 1024} GiB".replace(Regex("(\\.\\d{2})\\d+"), "$1")
+                            } else if (!it.startsWith("swap:")) it else status
+                    }
+                }.getOrElse { out += (it.message ?: "$it"); -1 }
                 val result = out.filter { it.startsWith("swap:") }.lastOrNull()?.removePrefix("swap:")?.trim()
                 status = result ?: (out.lastOrNull() ?: "failed ($code)")
             } finally {
@@ -64,6 +82,7 @@ class Swap(
         private const val KEY = "size_gb"
         const val DEFAULT_GB = 10
         const val FILE = "/data/larrylauncher/swapfile"
+        private val PROGRESS = Regex("progress (\\d+) (\\d+)")
         val SIZES = listOf(0, 4, 8, 10, 16)
 
         /** Free space that must stay on /data after the swap file is made. */
@@ -74,7 +93,7 @@ class Swap(
                 "mks() { if [ -n \"\$bb\" ]; then \$bb mkswap \"\$@\"; else mkswap \"\$@\"; fi; }; " +
                 "son() { if [ -n \"\$bb\" ]; then \$bb swapon \"\$@\"; else swapon \"\$@\"; fi; }; " +
                 "soff() { if [ -n \"\$bb\" ]; then \$bb swapoff \"\$@\"; else swapoff \"\$@\"; fi; }; " +
-                "f=$FILE; isOn() { grep -q \"^\$f \" /proc/swaps || { l=\$(losetup -a 2>/dev/null | grep \"\$f\" | cut -d: -f1); [ -n \"\$l\" ] && grep -q \"^\$l \" /proc/swaps; }; }; " +
+                "f=$FILE; p=$FILE.partial; c=$FILE.cancel; isOn() { grep -q \"^\$f \" /proc/swaps || { l=\$(losetup -a 2>/dev/null | grep \"\$f\" | cut -d: -f1); [ -n \"\$l\" ] && grep -q \"^\$l \" /proc/swaps; }; }; " +
                 "swOff() { if grep -q \"^\$f \" /proc/swaps; then soff \$f; else l=\$(losetup -a 2>/dev/null | grep \"\$f\" | cut -d: -f1); soff \$l && losetup -d \$l; fi; }\n"
 
         internal const val STATUS_SCRIPT =
@@ -88,28 +107,39 @@ class Swap(
                 """
                 want=${gb.toLong() * 1073741824L}
                 mkdir -p /data/larrylauncher && chmod 700 /data/larrylauncher
+                rm -f ${'$'}c
                 cur=0; [ -f ${'$'}f ] && cur=${'$'}(stat -c %s ${'$'}f)
-                if [ "${'$'}cur" != "${'$'}want" ]; then
+                new=
+                if [ -f ${'$'}p ] && [ "${'$'}(cat ${'$'}p)" = "${'$'}want" ] && [ "${'$'}cur" -le "${'$'}want" ]; then
+                  echo "resuming the swap file at ${'$'}(( cur / 1048576 )) MiB"
+                elif [ "${'$'}cur" != "${'$'}want" ] || [ -f ${'$'}p ]; then
                   if isOn; then swOff || { echo "swap: couldn't turn the old swap file off"; exit 1; }; fi
-                  rm -f ${'$'}f
+                  rm -f ${'$'}f ${'$'}p
                   avail=${'$'}(( ${'$'}(df -k /data | awk 'NR==2{print ${'$'}4}') / 1048576 ))
                   size=$gb
                   if [ ${'$'}(( avail - $RESERVE_GB )) -lt ${'$'}size ]; then size=${'$'}(( avail - $RESERVE_GB )); fi
                   if [ ${'$'}size -lt 1 ]; then echo "swap: skipped, only ${'$'}avail GiB free on /data"; exit 0; fi
                   [ ${'$'}size != $gb ] && echo "only ${'$'}avail GiB free: making ${'$'}size GiB instead of $gb"
                   want=${'$'}(( size * 1073741824 ))
-                  echo "making a ${'$'}size GiB swap file, this takes a minute"
                   touch ${'$'}f && chmod 600 ${'$'}f
                   # f2fs (android12-5.10): fallocate on an unpinned file only reserves blocks, which
                   # swapon sees as holes (EINVAL). Pin first and fallocate, or else write real zeros;
                   # swapon then moves blocks onto section boundaries itself and pins the file.
                   pinned=
                   command -v f2fs_io >/dev/null 2>&1 && f2fs_io pinfile set ${'$'}f >/dev/null 2>&1 && pinned=1
-                  if [ -z "${'$'}pinned" ] || ! fallocate -l ${'$'}want ${'$'}f 2>/dev/null; then
-                    echo "writing ${'$'}size GiB of zeros"
-                    dd if=/dev/zero of=${'$'}f bs=1048576 count=${'$'}(( size * 1024 )) 2>/dev/null || { rm -f ${'$'}f; echo "swap: couldn't write the swap file"; exit 1; }
-                    sync
-                  fi
+                  if [ -n "${'$'}pinned" ] && fallocate -l ${'$'}want ${'$'}f 2>/dev/null; then new=1; else echo ${'$'}want > ${'$'}p; cur=0; fi
+                fi
+                if [ -f ${'$'}p ]; then
+                  # Zeros in 256 MiB chunks: resumable from the last whole chunk, cancellable between chunks.
+                  i=${'$'}(( cur / 268435456 )); n=${'$'}(( want / 268435456 ))
+                  while [ ${'$'}i -lt ${'$'}n ]; do
+                    if [ -f ${'$'}c ]; then rm -f ${'$'}c; echo "swap: paused at ${'$'}(( i * 256 )) of ${'$'}(( n * 256 )) MiB, pick the size again to resume"; exit 0; fi
+                    dd if=/dev/zero of=${'$'}f bs=1048576 count=256 seek=${'$'}(( i * 256 )) conv=notrunc 2>/dev/null || { echo "swap: couldn't write the swap file (kept, pick the size again to resume)"; exit 1; }
+                    i=${'$'}(( i + 1 )); echo "progress ${'$'}(( i * 256 )) ${'$'}(( n * 256 ))"
+                  done
+                  sync; rm -f ${'$'}p; new=1
+                fi
+                if [ -n "${'$'}new" ]; then
                   chmod 600 ${'$'}f
                   mks ${'$'}f >/dev/null || { rm -f ${'$'}f; echo "swap: mkswap failed"; exit 1; }
                 fi
@@ -131,6 +161,6 @@ class Swap(
             TOOLS + "if isOn; then swOff && echo 'swap: off (file kept)'; else echo 'swap: off'; fi"
 
         internal fun removeScript(): String =
-            TOOLS + "if isOn; then swOff || { echo 'swap: couldn'\\''t turn it off'; exit 1; }; fi; rm -f \$f && echo 'swap: off, file deleted'"
+            TOOLS + "if isOn; then swOff || { echo 'swap: couldn'\\''t turn it off'; exit 1; }; fi; rm -f \$f \$p && echo 'swap: off, file deleted'"
     }
 }
