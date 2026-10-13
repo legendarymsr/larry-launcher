@@ -91,6 +91,9 @@ class Runtime(
     private val openBridge = OpenBridge(context, chroot, onOpenFiles = ::openFiles)
     val portage = Portage(chroot)
     val desktop = dev.legendarymsr.larrylauncher.linux.Desktop(chroot, portage)
+
+    /** Dillo, Xwayland, xwayland-satellite and legenddots for the desktop; installed as a tracked background job. */
+    val extras = dev.legendarymsr.larrylauncher.linux.DesktopExtras(chroot, portage)
     val widgets = WidgetEngine(context, chroot, this)
     val updates = SystemUpdates(chroot, portage)
     val gpu = Gpu(context, chroot)
@@ -339,6 +342,7 @@ class Runtime(
         scope.launch {
             // Update steps that need the network; the home screen doesn't wait for them.
             bootstrap.runBacklog()
+            ensureExtras()
             updates.check()
         }
         // Apps render in software until the GPU passed its check on this system build.
@@ -518,6 +522,7 @@ class Runtime(
     val niriWindow get() = wm.appWindows.firstOrNull { it.appId.startsWith("niri") || it.title.startsWith("niri") }
 
     fun startDesktop() {
+        ensureExtras()
         niriWindow?.let { return showWindow(it) }
         desktop.lastRun = emptyList()
         launch(desktop.startCommand(density = context.resources.displayMetrics.density, gpu = chroot.graphicsEnv != dev.legendarymsr.larrylauncher.linux.Gpu.SOFTWARE_ENV), onFailure = { desktop.lastRun = it })
@@ -525,8 +530,18 @@ class Runtime(
 
     fun stopDesktop() = launch(dev.legendarymsr.larrylauncher.linux.Desktop.STOP_COMMAND)
 
+    /** Installs the desktop extras in the background when niri is there and any of them is missing. */
+    fun ensureExtras() {
+        if (linux) scope.launch { extras.ensure(desktop.installed) }
+    }
+
+    /** Retries a failed extras install. */
+    fun retryExtras() {
+        if (linux) scope.launch { extras.run() }
+    }
+
     fun installDesktop() {
-        scope.launch { desktop.install() }
+        scope.launch { if (desktop.install()) extras.ensure(true) }
     }
 
     /** Shows a Linux window from the home screen's column strip: its task, or a new one. */

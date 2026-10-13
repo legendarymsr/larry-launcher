@@ -251,11 +251,7 @@ internal fun niriStartCommand(
             "w=wayland-niri; [ -S \"\$XDG_RUNTIME_DIR/\$w\" ] || { echo 'larrylauncher: no wayland-niri socket, using the scaled one'; w=\$WAYLAND_DISPLAY; }; " +
             // Older desktop installs predate fastfetch: fetch it in the background (best effort, binpkg if any).
             "command -v fastfetch >/dev/null 2>&1 || { echo 'larrylauncher: installing fastfetch in the background'; (emerge --quiet --noreplace --getbinpkg app-misc/fastfetch > /tmp/.larrylauncher-fastfetch.log 2>&1 &) ; }; " +
-            // Desktops installed before Dillo get it (and xwayland-satellite) in the background.
-            "command -v dillo >/dev/null 2>&1 && command -v xwayland-satellite >/dev/null 2>&1 || { [ -f /etc/portage/package.accept_keywords/larrylauncher-desktop ] && " +
-            "! grep -q dillo /etc/portage/package.accept_keywords/larrylauncher-desktop && printf '%s\\n' ${BROWSER_KEYWORDS.joinToString(" ") { shellQuote(it) }} >> /etc/portage/package.accept_keywords/larrylauncher-desktop; " +
-            "[ -d /etc/portage/package.use ] && printf '%s\\n' ${BROWSER_USE_LINES.joinToString(" ") { shellQuote(it) }} > /etc/portage/package.use/larrylauncher-browser; " +
-            "echo 'larrylauncher: installing dillo in the background'; (emerge --quiet --noreplace --getbinpkg ${BROWSER_PACKAGES.joinToString(" ")} > /tmp/.larrylauncher-dillo.log 2>&1 &) ; }; " +
+            // Missing Dillo/xwayland-satellite are installed by DesktopExtras, a tracked job shown under Linux install.
             // legenddots: cloned once into ~/legenddots, then its chroot script (re)links nvim, tmux, foot, fuzzel, fastfetch, dillo.
             "command -v git >/dev/null 2>&1 && ( { [ -d \"\$HOME/legenddots/.git\" ] || git clone -q --depth 1 $LEGENDDOTS_URL \"\$HOME/legenddots\"; } && " +
             "sh \"\$HOME/legenddots/gentoo/chroot/dotfiles.sh\" > /tmp/.larrylauncher-dotfiles.log 2>&1 & ) ; " +

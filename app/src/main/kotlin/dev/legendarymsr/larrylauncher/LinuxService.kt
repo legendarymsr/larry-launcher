@@ -7,7 +7,10 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import androidx.compose.runtime.snapshotFlow
+import dev.legendarymsr.larrylauncher.linux.ExtrasState
 import dev.legendarymsr.larrylauncher.linux.LinuxState
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,12 +38,14 @@ class LinuxService : Service() {
     ): Int {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Linux session", NotificationManager.IMPORTANCE_LOW))
-        val state = (application as App).runtime.bootstrap.state
+        val runtime = (application as App).runtime
+        val state = runtime.bootstrap.state
         startForeground(1, notification(state.value), ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         if (watch == null) {
             watch =
                 scope.launch {
-                    state.map(::text).distinctUntilChanged().collect { nm.notify(1, build(it)) }
+                    state.combine(snapshotFlow { runtime.extras.state }) { s, e -> text(s, e) }
+                        .distinctUntilChanged().collect { nm.notify(1, build(it)) }
                 }
         }
         // Not restarted after the process dies: Linux only comes back with the launcher (Runtime.start),
@@ -56,6 +61,18 @@ class LinuxService : Service() {
     }
 
     private fun notification(state: LinuxState) = build(text(state))
+
+    private fun text(
+        state: LinuxState,
+        extras: ExtrasState = ExtrasState.Idle,
+    ): String =
+        when {
+            state is LinuxState.Installed && extras is ExtrasState.Working ->
+                "Installing desktop extras" + (extras.progress?.let { " · ${(it * 100).toInt()}%" } ?: "") +
+                    (extras.pkg?.let { " · ${extras.n} of ${extras.of} ${it.substringAfter('/')}" } ?: "")
+            state is LinuxState.Installed && extras is ExtrasState.Failed -> "Desktop extras failed · open settings › linux to retry"
+            else -> text(state)
+        }
 
     private fun text(state: LinuxState): String =
         when (state) {

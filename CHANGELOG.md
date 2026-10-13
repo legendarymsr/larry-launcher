@@ -3,6 +3,18 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 0.7.3 (versionCode 15) – 2026-10-13
+
+- The desktop extras (Dillo, Xwayland, xwayland-satellite, legenddots) now
+  install as a tracked background job instead of silently at niri start.
+  Settings › linux shows the package being installed (n of m), a progress
+  bar and the live log, then done, or the error with a retry button; the
+  session notification shows the progress too.
+- It starts on its own whenever niri is installed and an extra is missing
+  (when Linux comes up, after installing the desktop, and when opening it),
+  runs one at a time under the Portage lock, and waits for an emerge an
+  older version left running.
+
 ## 0.7.2 (versionCode 14) – 2026-10-13
 
 - X11 apps launched into the niri session no longer get DISPLAY=:0 with no

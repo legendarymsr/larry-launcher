@@ -1,0 +1,2 @@
+- Dillo, Xwayland and xwayland-satellite install as a background job with progress (package n of m, progress bar, live log) under settings › linux and in the notification
+- Starts automatically when they're missing; retry button if it fails

@@ -30,7 +30,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.legendarymsr.larrylauncher.Runtime
+import dev.legendarymsr.larrylauncher.linux.ExtrasState
 import dev.legendarymsr.larrylauncher.linux.JobState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.Box
 import dev.legendarymsr.larrylauncher.linux.LinuxState
 import dev.legendarymsr.larrylauncher.linux.RootState
 import dev.legendarymsr.larrylauncher.linux.Chroot
@@ -139,6 +142,7 @@ private fun Installed(runtime: Runtime) {
             )
         }
     }
+    ExtrasRow(runtime)
     Spacer(Modifier.height(8.dp))
     SwapRow(runtime)
     if (runtime.gpu.supported) {
@@ -163,6 +167,43 @@ private fun Installed(runtime: Runtime) {
                 BracketAction("remove", Palette.red, runtime::removeLinux)
                 BracketAction("cancel", Palette.muted) { confirm = false }
             }
+        }
+    }
+}
+
+/**
+ * The desktop extras' background install: the package emerge is on (n of m), a progress bar,
+ * the live log tail, then done, or the error tail with retry. Hidden when there's nothing to show.
+ */
+@Composable
+private fun ExtrasRow(runtime: Runtime) {
+    val state = runtime.extras.state
+    if (state == ExtrasState.Idle) return
+    Spacer(Modifier.height(8.dp))
+    Column(Modifier.fillMaxWidth().clip(LauncherStyle.shape(12.dp)).background(Palette.surface).padding(14.dp)) {
+        BasicText("desktop extras · dillo, xwayland", style = Mono.copy(fontSize = TextSize.Item))
+        val small = Mono.copy(color = Palette.muted, fontSize = TextSize.Small)
+        when (state) {
+            is ExtrasState.Working -> {
+                BasicText(
+                    state.pkg?.let { "installing ${state.n} of ${state.of} · $it" } ?: "starting…",
+                    style = small,
+                    maxLines = 1,
+                )
+                val shown by animateFloatAsState((state.progress ?: 0f).coerceIn(0f, 1f), label = "extras")
+                Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(4.dp).background(Palette.background)) {
+                    Box(Modifier.fillMaxWidth(shown).height(4.dp).background(Palette.accent))
+                }
+                Spacer(Modifier.height(6.dp))
+                for (line in state.log.takeLast(6)) BasicText(line, style = small, maxLines = 1)
+            }
+            ExtrasState.Done -> BasicText("installed", style = small.copy(color = Palette.green))
+            is ExtrasState.Failed -> {
+                BasicText("failed:", style = small.copy(color = Palette.red))
+                for (line in state.log.takeLast(8)) BasicText(line, style = small.copy(color = Palette.red), maxLines = 3)
+                BracketAction("retry", Palette.accent) { runtime.retryExtras() }
+            }
+            ExtrasState.Idle -> {}
         }
     }
 }
