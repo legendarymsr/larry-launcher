@@ -1,12 +1,13 @@
 # Gentoo chroot screenshots
 
-Phone captures of the current Larry Launcher go here (1080 wide PNGs), named
-after the `shot` entries in `../frame.html`:
+Real phone captures of Larry Launcher (1080 wide PNGs), named after the
+`shot` entries in `../frame.html`:
 
-- `home.png`: the niri-style scrolling home
-- `drawer.png`: the app drawer with Android and Gentoo apps
-- `linux.png`: the Linux panel / Gentoo chroot install
-- `foot.png`: a Gentoo app (foot) in its own window
+- `home.png`: the niri-style scrolling home with a window open
+- `workspace.png`: an empty workspace
+- `columns.png`: apps in scrolling columns
+- `linux.png`: the Linux panel with Gentoo installed and the swap file
+- `foot.png`: foot running fastfetch on Gentoo
 - `niri.png`: real niri running from the chroot
 
-Only real captures of the app. `scripts/render-screenshots.sh` frames them.
+`scripts/render-screenshots.sh` frames them.
