@@ -74,11 +74,12 @@ class Swap(
                 "mks() { if [ -n \"\$bb\" ]; then \$bb mkswap \"\$@\"; else mkswap \"\$@\"; fi; }; " +
                 "son() { if [ -n \"\$bb\" ]; then \$bb swapon \"\$@\"; else swapon \"\$@\"; fi; }; " +
                 "soff() { if [ -n \"\$bb\" ]; then \$bb swapoff \"\$@\"; else swapoff \"\$@\"; fi; }; " +
-                "f=$FILE; isOn() { grep -q \"^\$f \" /proc/swaps; }\n"
+                "f=$FILE; isOn() { grep -q \"^\$f \" /proc/swaps || { l=\$(losetup -a 2>/dev/null | grep \"\$f\" | cut -d: -f1); [ -n \"\$l\" ] && grep -q \"^\$l \" /proc/swaps; }; }; " +
+                "swOff() { if grep -q \"^\$f \" /proc/swaps; then soff \$f; else l=\$(losetup -a 2>/dev/null | grep \"\$f\" | cut -d: -f1); soff \$l && losetup -d \$l; fi; }\n"
 
         internal const val STATUS_SCRIPT =
             TOOLS +
-                "if isOn; then echo \"swap: on · \$(( \$(awk -v f=\$f '\$1==f{print \$3}' /proc/swaps) / 1048576 )) GiB file · " +
+                "if isOn; then echo \"swap: on · \$(( \$(awk -v f=\${l:-\$f} '\$1==f{print \$3}' /proc/swaps) / 1048576 )) GiB file · " +
                 "\$(awk 'NR>1{t+=\$3;u+=\$4}END{printf \"%.1f of %.1f GiB swap used\", u/1048576, t/1048576}' /proc/swaps)\"; " +
                 "elif [ -f \$f ]; then echo 'swap: file exists but is off'; else echo 'swap: off'; fi"
 
@@ -89,7 +90,7 @@ class Swap(
                 mkdir -p /data/larrylauncher && chmod 700 /data/larrylauncher
                 cur=0; [ -f ${'$'}f ] && cur=${'$'}(stat -c %s ${'$'}f)
                 if [ "${'$'}cur" != "${'$'}want" ]; then
-                  if isOn; then soff ${'$'}f || { echo "swap: couldn't turn the old swap file off"; exit 1; }; fi
+                  if isOn; then swOff || { echo "swap: couldn't turn the old swap file off"; exit 1; }; fi
                   rm -f ${'$'}f
                   avail=${'$'}(( ${'$'}(df -k /data | awk 'NR==2{print ${'$'}4}') / 1048576 ))
                   size=$gb
@@ -99,25 +100,37 @@ class Swap(
                   want=${'$'}(( size * 1073741824 ))
                   echo "making a ${'$'}size GiB swap file, this takes a minute"
                   touch ${'$'}f && chmod 600 ${'$'}f
-                  # f2fs only swaps on a pinned file, whose blocks it then never moves.
-                  command -v f2fs_io >/dev/null 2>&1 && f2fs_io pinfile set ${'$'}f >/dev/null 2>&1
-                  if ! fallocate -l ${'$'}want ${'$'}f 2>/dev/null; then
-                    echo "fallocate failed, writing zeros instead"
+                  # f2fs (android12-5.10): fallocate on an unpinned file only reserves blocks, which
+                  # swapon sees as holes (EINVAL). Pin first and fallocate, or else write real zeros;
+                  # swapon then moves blocks onto section boundaries itself and pins the file.
+                  pinned=
+                  command -v f2fs_io >/dev/null 2>&1 && f2fs_io pinfile set ${'$'}f >/dev/null 2>&1 && pinned=1
+                  if [ -z "${'$'}pinned" ] || ! fallocate -l ${'$'}want ${'$'}f 2>/dev/null; then
+                    echo "writing ${'$'}size GiB of zeros"
                     dd if=/dev/zero of=${'$'}f bs=1048576 count=${'$'}(( size * 1024 )) 2>/dev/null || { rm -f ${'$'}f; echo "swap: couldn't write the swap file"; exit 1; }
+                    sync
                   fi
                   chmod 600 ${'$'}f
                   mks ${'$'}f >/dev/null || { rm -f ${'$'}f; echo "swap: mkswap failed"; exit 1; }
                 fi
                 if ! isOn; then
                   # No -p: the kernel ranks it below zram, which is faster.
-                  err=${'$'}(son ${'$'}f 2>&1) || { echo "swap: swapon failed: ${'$'}err"; exit 1; }
+                  if ! err=${'$'}(son ${'$'}f 2>&1); then
+                    k=${'$'}(dmesg 2>/dev/null | grep -iE 'swap|f2fs' | tail -n 2 | tr '\n' ' ')
+                    echo "swapon on the file failed: ${'$'}err ${'$'}k"
+                    # Fallback: swap through a loop device (slower, but needs no f2fs swapfile support).
+                    lo=${'$'}(losetup -f 2>/dev/null) && losetup ${'$'}lo ${'$'}f 2>/dev/null && son ${'$'}lo 2>/dev/null \
+                      && echo "swap: on via loop device ${'$'}lo" && exit 0
+                    [ -n "${'$'}lo" ] && losetup -d ${'$'}lo 2>/dev/null
+                    echo "swap: swapon failed: ${'$'}err ${'$'}k"; exit 1
+                  fi
                 fi
                 """.trimIndent() + "\n" + STATUS_SCRIPT.substringAfter("\n")
 
         internal fun offScript(): String =
-            TOOLS + "if isOn; then soff \$f && echo 'swap: off (file kept)'; else echo 'swap: off'; fi"
+            TOOLS + "if isOn; then swOff && echo 'swap: off (file kept)'; else echo 'swap: off'; fi"
 
         internal fun removeScript(): String =
-            TOOLS + "if isOn; then soff \$f || { echo 'swap: couldn'\\''t turn it off'; exit 1; }; fi; rm -f \$f && echo 'swap: off, file deleted'"
+            TOOLS + "if isOn; then swOff || { echo 'swap: couldn'\\''t turn it off'; exit 1; }; fi; rm -f \$f && echo 'swap: off, file deleted'"
     }
 }
