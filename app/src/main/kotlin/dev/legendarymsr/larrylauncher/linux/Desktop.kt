@@ -82,7 +82,7 @@ internal val NIRI_SESSION_HOOK =
     "printf '%s %s\\n' \"\$WAYLAND_DISPLAY\" $NIRI_X_DISPLAY > \"\$XDG_RUNTIME_DIR/$NIRI_SESSION_FILE\"; " +
         "command -v xwayland-satellite >/dev/null 2>&1 || exit 0; sleep 1; " +
         "l=/tmp/.X0-lock; if [ -f \$l ] && kill -0 \"\$(tr -dc 0-9 < \$l)\" 2>/dev/null; then exit 0; fi; " +
-        "rm -f \$l /tmp/.X11-unix/X0; mkdir -p /tmp/.X11-unix; chmod 1777 /tmp/.X11-unix; exec xwayland-satellite $NIRI_X_DISPLAY"
+        "rm -f \$l /tmp/.X11-unix/X0; mkdir -p /tmp/.X11-unix; chmod 1777 /tmp/.X11-unix; exec xwayland-satellite $NIRI_X_DISPLAY >> /tmp/.larrylauncher-xws.log 2>&1"
 
 /** First line of a config the launcher owns and rewrites each start; delete it to keep your own edits. */
 internal const val NIRI_CONFIG_MARKER = "// larrylauncher: managed"

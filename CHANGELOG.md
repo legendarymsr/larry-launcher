@@ -3,6 +3,17 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 0.7.2 (versionCode 14) – 2026-10-13
+
+- X11 apps launched into the niri session no longer get DISPLAY=:0 with no
+  X server behind it: if nothing live serves :0, the launcher starts
+  xwayland-satellite on niri's socket (detached), waits for
+  /tmp/.X11-unix/X0, and only then sets DISPLAY. A stale X0 socket no longer
+  counts as a running X server.
+- When that fails, the panel says why: xwayland-satellite not installed,
+  still building in the background, Xwayland missing, or the tail of its log
+  (/tmp/.larrylauncher-xws.log, also used by niri's startup hook).
+
 ## 0.7.1 (versionCode 13) – 2026-10-13
 
 - X11 apps (Dillo) launched from the app list failed with "Can't open

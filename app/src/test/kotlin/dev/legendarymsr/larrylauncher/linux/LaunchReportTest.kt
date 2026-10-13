@@ -47,6 +47,21 @@ class LaunchReportTest {
         assertEquals("[wayland-0]\n", out)
     }
 
+    @Test fun ensureXSaysWhenSatelliteIsMissing() {
+        val dir = Files.createTempDirectory("rt").toFile()
+        val p = ProcessBuilder("/bin/sh", "-c", "$ENSURE_X; ensurex; echo rc=\$?").redirectErrorStream(true)
+            .apply { environment()["PATH"] = "/usr/bin:/bin"; environment()["XDG_RUNTIME_DIR"] = dir.path }.start()
+        val out = p.inputStream.bufferedReader().readText()
+        p.waitFor()
+        assertTrue(out, out.contains("rc=1"))
+        assertTrue(out, out.contains("xwayland-satellite is not installed") || out.contains("still building"))
+    }
+
+    @Test fun summaryPrefersTheXServerReason() {
+        val f = LaunchFailure("dillo", 1, 0, listOf("larrylauncher: xwayland-satellite is not installed", "Can't open display: "))
+        assertTrue(f.summary(), f.summary().endsWith("xwayland-satellite is not installed"))
+    }
+
     private fun sh(
         script: String,
         runtime: File,

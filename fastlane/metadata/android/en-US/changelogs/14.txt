@@ -1,0 +1,2 @@
+- Dillo and other X11 apps: the launcher starts xwayland-satellite on demand and waits for display :0 before launching
+- Clear reason when X can't start (not installed, still building, Xwayland missing, or its log)
