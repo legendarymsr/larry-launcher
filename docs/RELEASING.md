@@ -33,7 +33,7 @@ retitle that section with the version when releasing.
   icons from them, including the Play Store icon; the feature graphic is
   exported by hand to `fastlane/metadata/android/en-US/images/featureGraphic.png`.
 - `store/screenshots/`: `frame.html` adds the captions and frames to the raw
-  captures in `raw/`; `scripts/render-screenshots.sh` renders the Play
+  captures in `gentoo-chroot/`; `scripts/render-screenshots.sh` renders the Play
   screenshots from it (needs Google Chrome).
 - `store/privacy-policy.txt`: the source of the privacy policy that the
   listing links to. Upload the new version before releasing a build that

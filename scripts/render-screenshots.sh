@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Renders store/screenshots/frame.html (captions + raw/ captures) into the
+# Renders store/screenshots/frame.html (captions + gentoo-chroot/ captures) into the
 # Play listing's phone screenshots, 1080x1920 each.
 set -euo pipefail
 

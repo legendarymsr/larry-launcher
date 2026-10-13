@@ -1,70 +1,64 @@
 Privacy Policy
 
-Effective Date: 10.10.2026
+Effective Date: 13.10.2026
 
-Larry Launcher ("the App") is an Android home screen launcher developed by legendarymsr ("we," "us," or "our"). This Privacy Policy explains how the App handles information.
+Larry Launcher ("the App") is an Android home screen launcher with an optional Gentoo Linux environment, developed by legendarymsr ("we," "us," or "our"). This Privacy Policy explains how the App handles information.
 
 1. Information We Do Not Collect
 
-The App does not collect, store, or transmit any personal data to our servers. We do not:
-- Require you to create an account or log in.
-- Track your usage with analytics or crash reporting tools.
+The App does not collect, store, or transmit any personal data to us. We do not:
+- Require an account or login.
+- Use analytics, telemetry or crash reporting.
 - Show ads or use advertising identifiers.
 - Collect device identifiers.
 - Operate any servers that receive your data.
 
 2. Local Data Storage
 
-Your home screen layout, widgets, theme settings and, if you install it, the Linux environment and its files are stored only on your device. Uninstalling the App deletes all of it. Removing Linux in the App's settings deletes the Linux environment and its files.
+Your home screen layout, settings and, if you install it, the Gentoo environment and everything in it are stored only on your device. Uninstalling the App deletes the App's data. Removing Linux in the App's settings deletes the Gentoo environment, its files and its swap file.
 
-3. Device Permissions
+3. Root Access
 
-- Microphone (optional): used only while you hold or tap the microphone button to dictate a prompt. Speech is recognized by your phone's speech recognition service (on the device where the phone supports it), and only the resulting text is passed to the app you are talking to. The App does not record or store audio.
-- Notification access (optional): lets media widgets show and control what is currently playing, and lets widgets you add show your notifications (app name, title and text) and open or dismiss them. Notifications are read on your device, only when a widget on your home screen asks for them, and are not stored or sent to us. A widget you add could send what it shows to a service it contacts; read a widget's file to see what it runs and which addresses it contacts.
+The Gentoo environment runs as a chroot on a Magisk-rooted device. The App asks Magisk for root only to set up, start, update and remove that chroot (mounting, SELinux policy for the chroot, and an optional swap file). Root is never used to read your other apps' data or send anything off the device.
+
+4. Device Permissions
+
+- Internet: used only for the downloads listed in section 5.
+- Foreground service and notifications: keep the Linux environment running while it is in use and show its status and progress.
 - Uninstalling apps: used only when you choose to uninstall an app from the app drawer. Android asks you to confirm every uninstall.
-- Internet: used to download the content listed in section 4.
+- Notification access (optional, off unless you grant it): lets the launcher show and control what is currently playing. Notifications are read on your device and are not stored or sent anywhere.
 
-4. Third-Party Services
+5. Network Connections
 
-The App connects to the following services. Each request reveals your IP address to that service, which handles it under its own privacy policy.
+The App makes network requests only when you install or update the optional Gentoo environment. Each request reveals your IP address to the server, which handles it under its own privacy policy.
+
+Gentoo (gentoo.org)
+- The official Gentoo arm64 stage3 and the Portage tree, from distfiles.gentoo.org and Gentoo's mirrors.
+- Packages from Gentoo's official arm64 binary package host (binhost), or, when no binary matches, source files from Gentoo's mirrors and upstream download sites.
+- The optional desktop (niri) uses the GURU overlay, synced from Gentoo's infrastructure.
+- Privacy Policy: https://www.gentoo.org/inside-gentoo/foundation/privacy.html
 
 GitHub (github.com)
-- Downloads the cliamp music player.
+- Only if you enable the optional GPU driver on a supported Mali device, a pinned Vulkan driver file is downloaded from GitHub and checked against a fixed checksum.
 - Privacy Policy: https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
 
-wttr.in (weather widget)
-- The weather widget requests the current weather. wttr.in estimates your approximate location from your IP address.
+Software you install inside Gentoo runs under your control and may make its own connections. We do not share any data with third parties ourselves.
 
-Widgets
-- Widgets may contact other services to show their content (for example prices, news feeds or radio streams). A widget's file shows what it runs and which addresses it contacts.
-
-Optional Linux environment
-- Only if you choose to install Linux, the App downloads the official Gentoo arm64 stage3 and the Portage tree from Gentoo's servers (distfiles.gentoo.org and its rsync/webrsync mirrors). Packages you install come from Gentoo's official arm64 binary package host (binhost) or, when no binary matches, their source files are downloaded from Gentoo's mirrors and upstream download sites.
-
-Optional coding agents
-- Only if you choose to install a coding agent (for example Claude Code, Codex or OpenCode), it is downloaded from its vendor. The prompts you send to an agent, and the files it works with, are sent to that agent's provider under the provider's own terms and privacy policy. You sign in to each agent with your own account.
-
-We do not share any data with third parties ourselves.
-
-5. Children's Privacy
+6. Children's Privacy
 
 The App is not intended for children under 13 years of age. We do not knowingly process data from children.
 
-6. GDPR Compliance (European Users)
+7. GDPR (European Users)
 
-As the developer is based in Berlin, Germany, we comply with the General Data Protection Regulation (GDPR) where applicable:
-- Local storage: all data the App stores stays on your device and is under your control.
-- Permissions: microphone and notification access are optional and require your explicit consent.
-- Third-party requests: requests to the services in section 4 are made only to provide the features you use.
+All data the App stores stays on your device and under your control. Network requests are made only to provide the features you choose to use.
 
-7. Your Rights
+8. Your Rights
 
 You can:
-- Revoke microphone and notification access at any time in your device settings.
+- Revoke notification access and root access at any time in your device settings or Magisk.
 - Remove Linux and its files in the App's settings.
-- Remove widgets from your home screen.
 - Delete all App data by uninstalling the App.
 
-8. Changes to This Privacy Policy
+9. Changes to This Privacy Policy
 
-We may update this Privacy Policy from time to time. Any changes will be posted here with an updated effective date.
+We may update this Privacy Policy from time to time. Changes will be posted here with an updated effective date.

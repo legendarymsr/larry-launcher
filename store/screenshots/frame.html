@@ -34,18 +34,15 @@
 <div id="root"></div>
 <script>
 const SLIDES = [
-  { shot: 'home_tokyo', title: 'Linux on <em>your phone</em>', text: 'Widgets, themes and real Linux apps, right on your home screen.' },
-  { trio: ['home_latte', 'home_tokyo_lazygit', 'home_kanagawa'], bg: 'home_kanagawa', title: '22 themes, <em>one tap</em>', text: 'Colors and wallpaper change across the launcher, widgets and Linux apps.' },
-  { shot: 'store', title: 'Your own <em>widgets</em>', text: 'Clocks, calendars, markets and feeds. Or write your own.' },
-  { shot: 'lazygit', title: 'Real <em>Linux apps</em>', text: 'Each opens in its own window, with the keys a terminal needs.' },
-  { shot: 'agents', title: 'Coding <em>agents</em>', text: 'Claude Code, Codex, OpenCode and more, one prompt away.' },
-  { shot: 'packages', title: 'Gentoo Linux, <em>optional</em>', text: 'Portage in a Magisk-root chroot. Or skip Linux entirely.' },
-  { shot: 'themes', title: 'Make it <em>yours</em>', text: 'Pick a theme, a background, icon style and corners.' },
-  { shot: 'drawer', title: 'All your <em>apps</em>', text: 'Android and Linux apps side by side, with themed icons.' },
+  { shot: 'home', title: 'A <em>niri-like</em> home', text: 'Apps in scrolling columns, swipe between them.' },
+  { shot: 'drawer', title: 'All your <em>apps</em>', text: 'Android and Gentoo apps side by side.' },
+  { shot: 'linux', title: 'Gentoo, <em>in a chroot</em>', text: 'A real Gentoo arm64 stage3 with Portage, on a Magisk-rooted phone.' },
+  { shot: 'foot', title: 'Real <em>Linux apps</em>', text: 'Each opens in its own window.' },
+  { shot: 'niri', title: 'Real <em>niri</em>', text: 'Start the full niri desktop from the chroot.' },
 ];
 const n = +(new URLSearchParams(location.search).get('s') || 1);
 const s = SLIDES[n - 1];
-const img = name => `raw/${name}.png`;
+const img = name => `gentoo-chroot/${name}.png`;
 const phones = s.trio
   ? s.trio.map((t, i) => `<div class="phone p${i + 1}"><img src="${img(t)}"></div>`).join('')
   : `<div class="phone"><img src="${img(s.shot)}"></div>`;
