@@ -71,6 +71,7 @@ class Runtime(
     private val context: Context,
 ) {
     val chroot = Chroot(context)
+    val kernel = dev.legendarymsr.larrylauncher.kernel.Kernel(context, chroot)
     val wm = WindowManager()
     val server = WaylandServer(chroot.waylandSocket.path, wm, chroot.niriSocket.path).also { wm.server = it }
     val keyboard = KeyboardBridge(wm)

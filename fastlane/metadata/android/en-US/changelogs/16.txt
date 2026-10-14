@@ -1,0 +1,1 @@
+New: settings › kernel for the Galaxy Z Flip4 (SM-F721B) on Android 16. Back up boot, flash the Larry kernel (Samsung's 5.10 kernel plus PID namespaces, Magisk kept) and restore backups, through Magisk root.

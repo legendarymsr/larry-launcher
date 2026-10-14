@@ -37,6 +37,7 @@ fun SettingsScreen(
     onLinux: () -> Unit,
     onDesktop: () -> Unit,
     onLicenses: () -> Unit,
+    onKernel: () -> Unit,
     onGestures: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -61,6 +62,7 @@ fun SettingsScreen(
                 Triple("android settings", "the phone's system settings") {
                     context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 },
+                Triple("kernel", "Galaxy Z Flip4: back up boot, flash the Larry kernel, restore", onKernel),
                 Triple("licenses", "open source software in Larry Launcher", onLicenses),
             )
         if (installed) {

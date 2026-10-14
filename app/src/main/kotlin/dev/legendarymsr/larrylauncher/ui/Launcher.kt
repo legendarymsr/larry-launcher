@@ -86,6 +86,7 @@ private fun DesktopScreen(
             // Screens opened from settings return to it; settings itself is last.
             state.linuxOpen -> state.linuxOpen = false
             state.licensesOpen -> state.licensesOpen = false
+            state.kernelOpen -> state.kernelOpen = false
             state.gesturesOpen -> state.gesturesOpen = false
             state.desktopOpen -> state.desktopOpen = false
             state.styleOpen -> state.styleOpen = false
@@ -232,11 +233,13 @@ private fun ThemesOverlay(
             onLinux = { state.linuxOpen = true },
             onDesktop = { state.desktopOpen = true },
             onLicenses = { state.licensesOpen = true },
+            onKernel = { state.kernelOpen = true },
             onGestures = { state.gesturesOpen = true },
         )
     }
     if (state.packagesOpen) PackagesScreen(runtime, onDismiss = { state.packagesOpen = false })
     if (state.styleOpen) StyleScreen(runtime, onDismiss = { state.styleOpen = false })
+    if (state.kernelOpen) KernelScreen(runtime, onDismiss = { state.kernelOpen = false })
     if (state.licensesOpen) LicensesScreen(onDismiss = { state.licensesOpen = false })
     if (state.gesturesOpen) GesturesScreen(runtime, onDismiss = { state.gesturesOpen = false })
     if (state.linuxOpen) LinuxScreen(runtime, onDismiss = { state.linuxOpen = false })

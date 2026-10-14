@@ -3,6 +3,20 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 0.8.0 (versionCode 16) – 2026-10-14
+
+- New settings › kernel screen for the Galaxy Z Flip4 (SM-F721B, b4q) on
+  Android 16. It shows the running kernel and can back up the boot
+  partition to /sdcard/LarryLauncher/backup, flash the Larry kernel, restore
+  any backup and reboot, all through Magisk root.
+- The Larry kernel is Samsung's SM-F721B Android 16 kernel source
+  (5.10.236) with stock config plus PID namespaces, packed as a kernel-only
+  AnyKernel3 zip: the ramdisk, and Magisk in it, are left alone.
+- Flashing refuses unless the phone is a b4q SM-F721* on Android 16 with a
+  5.10 kernel, checks the downloaded zip's sha256, always backs up boot first
+  (checked against the partition by size and sha256) and asks for
+  confirmation with a warning.
+
 ## 0.7.3 (versionCode 15) – 2026-10-13
 
 - The desktop extras (Dillo, Xwayland, xwayland-satellite, legenddots) now
