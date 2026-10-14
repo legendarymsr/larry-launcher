@@ -11,3 +11,9 @@
 
 - Source: Samsung Open Source `SM-F721B_15_Opensource.zip` (F721BXXUAHYD9) with the `F721BXXSAHYGB` and `F721BXXSAHYI1` update zips laid over it in that order, Linux 5.10.226. Same compiler (clang-r416183b) and config changes; built by `build15.sh`, packed with `anykernel-android15.sh` (supported.versions=15).
 - The app only flashes it on firmware F721BXXSAHYI1.
+
+## Android 15 + KernelSU-Next
+
+- Same source as above, plus KernelSU-Next v3.4.2 (tag 4c706b5) built in (`CONFIG_KSU=y`, kprobe hooks, no SUSFS), version `5.10.226-android12-9-larry-ksun`. Built by `build15ksu.sh`.
+- Samsung's UH, RKP (+CFP), KDP (+CRED, NS), DEFEX, PROCA and FIVE are off, the same set other Samsung KernelSU builds turn off; v3.4.2 has no Samsung RKP/KDP compatibility code.
+- `anykernel-android15-ksun.sh` swaps the kernel and, if the ramdisk is Magisk-patched, restores the stock ramdisk from Magisk's `.backup` (`magiskboot cpio restore`, what Magisk's uninstaller does). It aborts before writing if the result isn't stock or has no `init`.

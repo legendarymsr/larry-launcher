@@ -3,6 +3,18 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 0.9.2 (versionCode 20) – 2026-10-14
+
+- Settings › kernel can switch from Magisk to KernelSU-Next (Android 15,
+  F721BXXSAHYI1). It backs up the Magisk boot as the way back, switches off
+  Magisk modules (keeping a list), installs the KernelSU Next v3.4.2
+  manager (sha256-checked) while Magisk root still works, then flashes the
+  Larry kernel with KernelSU-Next built in. That zip puts the stock ramdisk
+  back from Magisk's own .backup and refuses to write if the result isn't
+  stock.
+- "back to Magisk" writes the saved Magisk boot back and turns the modules
+  on again. Flashing the plain Larry kernel is refused while KernelSU-Next
+  runs, so the phone can't end up without root.
 ## 0.9.1 (versionCode 19) – 2026-10-14
 
 - New settings › de-google screen. Google apps are listed by risk (safe,

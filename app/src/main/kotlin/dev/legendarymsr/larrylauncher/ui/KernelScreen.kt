@@ -43,6 +43,8 @@ fun KernelScreen(
     var confirmFlash by remember { mutableStateOf(false) }
     var confirmRestore by remember { mutableStateOf<String?>(null) }
     var confirmReboot by remember { mutableStateOf(false) }
+    var confirmKsu by remember { mutableStateOf(false) }
+    var confirmMagisk by remember { mutableStateOf(false) }
     var refresh by remember { mutableStateOf(0) }
     LaunchedEffect(refresh) {
         withContext(Dispatchers.IO) {
@@ -59,6 +61,8 @@ fun KernelScreen(
     val d = device
     val refusal = d?.refusal
     val build = d?.let { Kernel.BUILDS[it.android] }
+    val ksu = d != null && kernel.ksuRunning(d)
+    val ksuBuild = d?.let { Kernel.KSU_BUILDS[it.android] }
     val running = build != null && d.kernel == build.version
     OverlayPanel("kernel", onDismiss, contentWidth = ReadingWidth) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -74,6 +78,7 @@ fun KernelScreen(
                         when {
                             d == null -> ""
                             refusal != null -> "can't flash here: $refusal"
+                            ksu -> "the Larry kernel with KernelSU-Next is running."
                             running -> "the Larry kernel is running."
                             else -> "Larry kernel ${build?.version}: Samsung's SM-F721B Android ${d.android} kernel, stock config plus PID namespaces. Only the kernel in boot changes; Magisk stays."
                         },
@@ -84,7 +89,9 @@ fun KernelScreen(
             busy?.let { b -> item { BasicText("$b…", style = Mono.copy(color = Palette.accent), modifier = Modifier.padding(4.dp)) } }
             if (busy == null && d != null && refusal == null) {
                 item { Action("back up boot", "copy the boot partition to /sdcard/LarryLauncher/backup") { run { kernel.backup() } } }
-                item { Action("flash the Larry kernel", "backs up boot first, then flashes") { confirmFlash = true } }
+                if (!ksu) item { Action("flash the Larry kernel", "backs up boot first, then flashes; keeps Magisk") { confirmFlash = true } }
+                if (!ksu && ksuBuild != null) item { Action("switch to KernelSU-Next", "Magisk out, KernelSU-Next in; the Magisk boot is kept to come back") { confirmKsu = true } }
+                if (ksu) item { Action("back to Magisk", "write the saved Magisk boot back and turn the modules on again") { confirmMagisk = true } }
                 items(backups, key = { it }) { b ->
                     Action("restore ${b.substringAfterLast('/')}", "write this backup back to boot") { confirmRestore = b }
                 }
@@ -120,6 +127,33 @@ fun KernelScreen(
         ) {
             confirmRestore = null
             run { kernel.restore(path) }
+        }
+    }
+    if (confirmKsu) {
+        ConfirmDialog(
+            "switch to KernelSU-Next?",
+            "1. Boot (with Magisk) is backed up to /sdcard/LarryLauncher/backup; that copy is the way back.\n" +
+                "2. Every Magisk module is switched off (they're turned back on if you go back).\n" +
+                "3. The KernelSU Next manager v3.4.2 is installed.\n" +
+                "4. The Larry kernel with KernelSU-Next is flashed, and Magisk is taken out of the ramdisk.\n\n" +
+                "This kernel has Samsung's RKP/KDP/DEFEX protections off, which Knox notices, and Samsung Pay, Secure Folder and some banking apps may stop working. " +
+                "After the reboot Larry Launcher has no root until you allow it in KernelSU Next. If the phone doesn't boot, you need Odin/Brokkr and the backup. Continue?",
+            "switch",
+            onDismiss = { confirmKsu = false },
+        ) {
+            confirmKsu = false
+            run { kernel.switchToKsu() }
+        }
+    }
+    if (confirmMagisk) {
+        ConfirmDialog(
+            "back to Magisk?",
+            "Writes the Magisk boot saved before the switch back to boot and turns the Magisk modules on again. Reboot afterwards.",
+            "go back",
+            onDismiss = { confirmMagisk = false },
+        ) {
+            confirmMagisk = false
+            run { kernel.backToMagisk() }
         }
     }
     if (confirmReboot) {

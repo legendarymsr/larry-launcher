@@ -1,0 +1,1 @@
+Kernel screen: switch from Magisk to KernelSU-Next (Android 15 HYI1) with the Magisk boot kept for one-tap back to Magisk.
