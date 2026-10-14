@@ -14,7 +14,7 @@ import java.security.MessageDigest
 
 /**
  * The Larry kernel for the Galaxy Z Flip4 (b4q): a kernel-only AnyKernel3 zip built from
- * Samsung's SM-F721B Android 16 source. Flashing replaces only the kernel inside the boot
+ * Samsung's SM-F721B source for the running Android version. Flashing replaces only the kernel inside the boot
  * partition; the ramdisk, and Magisk in it, are kept. Every flash backs up boot first.
  */
 class Kernel(
@@ -34,11 +34,20 @@ class Kernel(
                 when {
                     device !in DEVICES -> "this phone is \"$device\" ($model), not a Galaxy Z Flip4 (b4q). The kernel would not boot here."
                     !model.startsWith("SM-F721") -> "model $model isn't a Galaxy Z Flip4 (SM-F721*)."
-                    android != ANDROID -> "the kernel is built from Samsung's Android $ANDROID source and this phone runs Android $android. Update to One UI 8 (Android $ANDROID) first."
+                    android !in BUILDS -> "there's a Larry kernel for Android ${BUILDS.keys.joinToString(" and ")} only, built from Samsung's source for each, and this phone runs Android $android."
+                    BUILDS[android]?.firmware?.let { it != build } == true -> "the Android $android kernel is built from Samsung's source for firmware ${BUILDS[android]?.firmware} and this phone runs $build. Flash that firmware first."
                     !kernel.startsWith("5.10.") -> "the running kernel is $kernel, not the 5.10 kernel this one replaces."
                     else -> null
                 }
     }
+
+    class KernelBuild(
+        val version: String,
+        val url: String,
+        val sha256: String,
+        /** The exact firmware build its source matches, when it's tied to one. */
+        val firmware: String? = null,
+    )
 
     val log = MutableStateFlow<List<String>>(emptyList())
     private val _busy = MutableStateFlow<String?>(null)
@@ -128,15 +137,17 @@ class Kernel(
         job("flashing") {
             val d = device()
             d.refusal?.let { say("refused: $it"); return@job false }
-            val zip = File(context.cacheDir, "larry-kernel-b4q.zip")
-            if (!zip.exists() || sha256(zip) != ZIP_SHA256) {
-                say("downloading $ZIP_URL")
-                download(ZIP_URL, zip)
+            val build = BUILDS.getValue(d.android)
+            say("Android ${d.android}: Larry kernel ${build.version}")
+            val zip = File(context.cacheDir, "larry-kernel-b4q-android${d.android}.zip")
+            if (!zip.exists() || sha256(zip) != build.sha256) {
+                say("downloading ${build.url}")
+                download(build.url, zip)
             }
             val sum = sha256(zip)
-            if (sum != ZIP_SHA256) {
+            if (sum != build.sha256) {
                 zip.delete()
-                say("download checksum $sum doesn't match $ZIP_SHA256; not flashing")
+                say("download checksum $sum doesn't match ${build.sha256}; not flashing")
                 return@job false
             }
             say("zip ok (sha256 $sum)")
@@ -220,12 +231,14 @@ class Kernel(
 
     companion object {
         val DEVICES = setOf("b4q")
-        const val ANDROID = "16"
         const val BOOT = "/dev/block/by-name/boot"
         /** /sdcard/LarryLauncher/backup, by the path root can always reach whatever its mount namespace. */
         const val BACKUP_DIR = "/data/media/0/LarryLauncher/backup"
-        const val VERSION = "5.10.236-android12-9-larry"
-        const val ZIP_URL = "https://github.com/legendarymsr/larry-launcher/releases/download/v0.8.0-debug/larry-kernel-b4q.zip"
-        const val ZIP_SHA256 = "dbd302a42bae1f2ee3db4d47011c2b9586d3799b571e032a120ce41dccf0a1a1"
+        /** One kernel per Android version, each from Samsung's SM-F721B source for that version; its zip checks the version again. */
+        val BUILDS =
+            mapOf(
+                "15" to KernelBuild("5.10.226-android12-9-larry", "https://github.com/legendarymsr/larry-launcher/releases/download/v0.8.1-debug/larry-kernel-b4q-android15.zip", "dd25c13cba31401689bd3450b7f197b1372061e2212273cacce8625da2317cae", firmware = "F721BXXSAHYI1"),
+                "16" to KernelBuild("5.10.236-android12-9-larry", "https://github.com/legendarymsr/larry-launcher/releases/download/v0.8.0-debug/larry-kernel-b4q.zip", "dbd302a42bae1f2ee3db4d47011c2b9586d3799b571e032a120ce41dccf0a1a1"),
+            )
     }
 }

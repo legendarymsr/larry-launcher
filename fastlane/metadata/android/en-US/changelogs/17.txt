@@ -1,0 +1,1 @@
+Kernel screen: Android 15 (One UI 7, F721BXXSAHYI1) Larry kernel, picked by Android version; Android 16 keeps its own build.

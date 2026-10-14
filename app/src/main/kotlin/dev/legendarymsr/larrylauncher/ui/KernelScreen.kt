@@ -58,7 +58,8 @@ fun KernelScreen(
     }
     val d = device
     val refusal = d?.refusal
-    val running = d?.kernel == Kernel.VERSION
+    val build = d?.let { Kernel.BUILDS[it.android] }
+    val running = build != null && d.kernel == build.version
     OverlayPanel("kernel", onDismiss, contentWidth = ReadingWidth) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
@@ -74,7 +75,7 @@ fun KernelScreen(
                             d == null -> ""
                             refusal != null -> "can't flash here: $refusal"
                             running -> "the Larry kernel is running."
-                            else -> "Larry kernel ${Kernel.VERSION}: Samsung's SM-F721B Android 16 kernel, stock config plus PID namespaces. Only the kernel in boot changes; Magisk stays."
+                            else -> "Larry kernel ${build?.version}: Samsung's SM-F721B Android ${d.android} kernel, stock config plus PID namespaces. Only the kernel in boot changes; Magisk stays."
                         },
                         style = Mono.copy(color = if (refusal != null) Palette.red else Palette.muted, fontSize = TextSize.Small),
                     )
@@ -102,7 +103,7 @@ fun KernelScreen(
             "This rewrites the kernel in your boot partition. A bad kernel can leave the phone stuck on the Samsung logo, " +
                 "and getting out of that needs a PC with Odin or a custom recovery to write the backup back. " +
                 "Your current boot is backed up to /sdcard/LarryLauncher/backup first; copy it off the phone too. " +
-                "It's built for SM-F721B on Android 16 only. Continue?",
+                "It's built for SM-F721B on this Android version only. Continue?",
             "flash",
             onDismiss = { confirmFlash = false },
         ) {

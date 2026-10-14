@@ -3,6 +3,14 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 0.8.1 (versionCode 17) – 2026-10-14
+
+- The Larry kernel now comes per Android version, picked from the phone's
+  Android version: Android 15 gets a new build from Samsung's SM-F721B
+  Android 15 source with the F721BXXSAHYI1 updates (5.10.226), and it only
+  flashes on firmware F721BXXSAHYI1. Android 16 keeps the 0.8.0 build.
+  Other versions are refused.
+
 ## 0.8.0 (versionCode 16) – 2026-10-14
 
 - New settings › kernel screen for the Galaxy Z Flip4 (SM-F721B, b4q) on
