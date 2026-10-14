@@ -25,6 +25,7 @@ class LauncherState {
     var packagesOpen by mutableStateOf(false)
     var licensesOpen by mutableStateOf(false)
     var kernelOpen by mutableStateOf(false)
+    var degoogleOpen by mutableStateOf(false)
     var gesturesOpen by mutableStateOf(false)
 
     /** The Linux sheet: install, progress, remove. Opened by anything that needs Linux. */
@@ -35,7 +36,7 @@ class LauncherState {
 
     /** The open drawer or a full-screen panel hides the home screen; animated widgets stop ticking under it. */
     val homeCovered: Boolean
-        get() = drawer.value > 0.99f || settingsOpen || styleOpen || packagesOpen || linuxOpen || licensesOpen || kernelOpen || gesturesOpen
+        get() = drawer.value > 0.99f || settingsOpen || styleOpen || packagesOpen || linuxOpen || licensesOpen || kernelOpen || degoogleOpen || gesturesOpen
 
     /** Closes every overlay screen (settings and what it opens). */
     fun closeScreens() {
@@ -44,6 +45,7 @@ class LauncherState {
         linuxOpen = false
         licensesOpen = false
         kernelOpen = false
+        degoogleOpen = false
         gesturesOpen = false
         settingsOpen = false
         homeMenuOpen = false

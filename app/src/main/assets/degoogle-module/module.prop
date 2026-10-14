@@ -1,0 +1,6 @@
+id=larry-degoogle
+name=Larry De-Google
+version=1
+versionCode=1
+author=legendarymsr
+description=Keeps the Google apps you turned off in Larry Launcher off (pm disable-user, user 0). Re-enables them all if two boots in a row fail, and when the module is removed.

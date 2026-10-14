@@ -3,6 +3,20 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 0.9.1 (versionCode 19) – 2026-10-14
+
+- New settings › de-google screen. Google apps are listed by risk (safe,
+  careful, core) and turned off for user 0 with `pm disable-user`; nothing
+  is uninstalled or changed in /system, and restore all turns them back on.
+  Default apps (keyboard, SMS, dialer, browser, home, WebView provider) are
+  skipped, mainline/setup-wizard/WebView packages and One UI Home are never
+  touched, and nothing is turned off until Larry is the home app.
+- Optional Larry De-Google module for Magisk or KernelSU(-Next): re-applies
+  the list after boot, turns everything back on after two unfinished boots
+  or when the module is removed, and re-enables One UI Home if Larry is gone.
+- New settings › larry wm row: shows whether Larry is the home app and sets
+  it as default.
+
 ## 0.8.1 (versionCode 17) – 2026-10-14
 
 - The Larry kernel now comes per Android version, picked from the phone's

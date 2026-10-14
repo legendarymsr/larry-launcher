@@ -18,6 +18,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,11 +39,18 @@ fun SettingsScreen(
     onDesktop: () -> Unit,
     onLicenses: () -> Unit,
     onKernel: () -> Unit,
+    onDeGoogle: () -> Unit,
     onGestures: () -> Unit,
 ) {
     val context = LocalContext.current
     val linux by runtime.bootstrap.state.collectAsState()
     val installed = linux == LinuxState.Installed
+    val roles = context.getSystemService(android.app.role.RoleManager::class.java)
+    var isHome by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(true) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        isHome = roles.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)
+        onPauseOrDispose {}
+    }
     OverlayPanel("settings", onDismiss, contentWidth = ReadingWidth) {
         val linuxStatus =
             when (val l = linux) {
@@ -54,6 +62,7 @@ fun SettingsScreen(
             }
         val rows =
             listOf(
+                Triple("larry wm", if (isHome) "Larry is the home app · change" else "not the home app yet · set Larry as default") { requestHome(context) },
                 Triple("style", runtime.themes.current?.title ?: "theme, background, home screen", onStyle),
                 Triple("gestures", "swipe up: ${runtime.gestures.swipeUp.label}", onGestures),
                 Triple("linux", linuxStatus, onLinux),
@@ -62,6 +71,7 @@ fun SettingsScreen(
                 Triple("android settings", "the phone's system settings") {
                     context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 },
+                Triple("de-google", "turn Google apps off, reversibly, by risk", onDeGoogle),
                 Triple("kernel", "Galaxy Z Flip4: back up boot, flash the Larry kernel, restore", onKernel),
                 Triple("licenses", "open source software in Larry Launcher", onLicenses),
             )

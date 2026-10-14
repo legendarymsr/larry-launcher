@@ -87,6 +87,7 @@ private fun DesktopScreen(
             state.linuxOpen -> state.linuxOpen = false
             state.licensesOpen -> state.licensesOpen = false
             state.kernelOpen -> state.kernelOpen = false
+            state.degoogleOpen -> state.degoogleOpen = false
             state.gesturesOpen -> state.gesturesOpen = false
             state.desktopOpen -> state.desktopOpen = false
             state.styleOpen -> state.styleOpen = false
@@ -234,11 +235,13 @@ private fun ThemesOverlay(
             onDesktop = { state.desktopOpen = true },
             onLicenses = { state.licensesOpen = true },
             onKernel = { state.kernelOpen = true },
+            onDeGoogle = { state.degoogleOpen = true },
             onGestures = { state.gesturesOpen = true },
         )
     }
     if (state.packagesOpen) PackagesScreen(runtime, onDismiss = { state.packagesOpen = false })
     if (state.styleOpen) StyleScreen(runtime, onDismiss = { state.styleOpen = false })
+    if (state.degoogleOpen) DeGoogleScreen(runtime, onDismiss = { state.degoogleOpen = false })
     if (state.kernelOpen) KernelScreen(runtime, onDismiss = { state.kernelOpen = false })
     if (state.licensesOpen) LicensesScreen(onDismiss = { state.licensesOpen = false })
     if (state.gesturesOpen) GesturesScreen(runtime, onDismiss = { state.gesturesOpen = false })

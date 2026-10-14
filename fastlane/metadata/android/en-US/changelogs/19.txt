@@ -1,0 +1,1 @@
+De-Google screen: turn Google apps off by risk with pm disable-user, restore all, optional Magisk/KernelSU keep-off module. Settings › larry wm sets Larry as the home app.

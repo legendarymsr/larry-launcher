@@ -1,0 +1,9 @@
+#!/sbin/sh
+umask 022
+ui_print() { echo "$1"; }
+OUTFD=$2
+ZIPFILE=$3
+mount /data 2>/dev/null
+[ -f /data/adb/magisk/util_functions.sh ] && . /data/adb/magisk/util_functions.sh
+if command -v install_module >/dev/null 2>&1; then install_module; exit 0; fi
+ui_print "install this from Magisk or KernelSU, not recovery"; exit 1
