@@ -32,6 +32,19 @@ from the GURU overlay (niri is keyworded `~amd64` only, so it's accepted with
 (Rust ≥ 1.87 via `dev-lang/rust-bin`, plus clang for bindgen): expect hours
 and several GB. Nested, niri's Mod key is Alt.
 
+## Galaxy Z Flip4 extras (SM-F721B, rooted)
+
+On a rooted Samsung Galaxy Z Flip4 (`b4q`), settings › kernel can flash a custom Larry kernel built from Samsung's official Android 15 source (firmware `F721BXXSAHYI1`), with PID namespaces for the Gentoo chroot:
+
+- `larry` kernel: stock plus PID namespaces, keeps Magisk.
+- `larry-ksun` kernel: adds KernelSU-Next, with a one-tap switch from Magisk and a "back to Magisk" button.
+
+Every flash backs up the boot partition to `/sdcard/LarryLauncher/backup/` first and is refused on any other model, Android version or firmware. Copy the backup to a PC: a bootloop is recovered with Odin or Brokkr. The KernelSU-Next kernel turns off Samsung's kernel protections (RKP, KDP, DEFEX and others), so Samsung Pay, Secure Folder and some banking apps may stop working. Both kernels are confirmed booting on a Flip4.
+
+Settings also has a De-Google screen (any rooted phone): Google apps grouped by risk and disabled reversibly with `pm disable-user`, never uninstalled, with a restore-all button.
+
+Kernel build recipes are in `kernel/b4q/`.
+
 ## Building
 
 ```sh
