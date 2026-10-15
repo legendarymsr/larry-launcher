@@ -34,10 +34,18 @@ and several GB. Nested, niri's Mod key is Alt.
 
 ## Galaxy Z Flip4 extras (SM-F721B, rooted)
 
-On a rooted Samsung Galaxy Z Flip4 (`b4q`), settings › kernel can flash a custom Larry kernel built from Samsung's official Android 15 source (firmware `F721BXXSAHYI1`), with PID namespaces for the Gentoo chroot:
+On a rooted Samsung Galaxy Z Flip4 (`b4q`), settings › kernel can flash a custom Larry kernel built from Samsung's official Android 15 source (firmware `F721BXXSAHYI1`), with PID namespaces for the Gentoo chroot. Both kernels are confirmed booting on a Flip4:
 
 - `larry` kernel: stock plus PID namespaces, keeps Magisk.
 - `larry-ksun` kernel: adds KernelSU-Next, with a one-tap switch from Magisk and a "back to Magisk" button.
+
+
+Release [v1.0](https://github.com/legendarymsr/larry-launcher/releases/tag/v1.0) also includes flashable AP files for Odin or Brokkr, for rooting again after a full firmware reflash:
+
+- `AP_larry-ksun-plain_F721BXXSAHYI1.tar.md5`: the boot image with the KernelSU-Next kernel (`5.10.226-android12-9-larry-ksun`, KernelSU-Next v3.4.2), flash in the AP slot.
+- `AP_stock-boot-only_F721BXXSAHYI1.zip`: the stock boot image, unzip and flash in the AP slot to go back.
+
+The kernel inside is built from Samsung's official open source release for SM-F721B, firmware `F721BXXSAHYI1`, so redistributing the build doesn't touch Samsung's copyright.
 
 Every flash backs up the boot partition to `/sdcard/LarryLauncher/backup/` first and is refused on any other model, Android version or firmware. Copy the backup to a PC: a bootloop is recovered with Odin or Brokkr. The KernelSU-Next kernel turns off Samsung's kernel protections (RKP, KDP, DEFEX and others), so Samsung Pay, Secure Folder and some banking apps may stop working. Both kernels are confirmed booting on a Flip4.
 
