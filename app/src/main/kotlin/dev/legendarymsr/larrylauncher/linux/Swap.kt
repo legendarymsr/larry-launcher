@@ -89,7 +89,7 @@ class Swap(
         const val RESERVE_GB = 5
 
         private const val TOOLS =
-            "bb=/data/adb/magisk/busybox; [ -x \$bb ] || bb=; " +
+            "bb=; for b in /data/adb/ksu/bin/busybox /data/adb/ap/bin/busybox /data/adb/magisk/busybox; do [ -x \$b ] && { bb=\$b; break; }; done; " +
                 "mks() { if [ -n \"\$bb\" ]; then \$bb mkswap \"\$@\"; else mkswap \"\$@\"; fi; }; " +
                 "son() { if [ -n \"\$bb\" ]; then \$bb swapon \"\$@\"; else swapon \"\$@\"; fi; }; " +
                 "soff() { if [ -n \"\$bb\" ]; then \$bb swapoff \"\$@\"; else swapoff \"\$@\"; fi; }; " +
@@ -107,52 +107,69 @@ class Swap(
                 """
                 want=${gb.toLong() * 1073741824L}
                 mkdir -p /data/larrylauncher && chmod 700 /data/larrylauncher
-                rm -f ${'$'}c
-                cur=0; [ -f ${'$'}f ] && cur=${'$'}(stat -c %s ${'$'}f)
-                new=
-                if [ -f ${'$'}p ] && [ "${'$'}(cat ${'$'}p)" = "${'$'}want" ] && [ "${'$'}cur" -le "${'$'}want" ]; then
-                  echo "resuming the swap file at ${'$'}(( cur / 1048576 )) MiB"
-                elif [ "${'$'}cur" != "${'$'}want" ] || [ -f ${'$'}p ]; then
+                rm -f ${'$'}{c}
+                # Makes a fresh, fully allocated file: never resized in place. ${'$'}1=dd forces zeros.
+                create() {
                   if isOn; then swOff || { echo "swap: couldn't turn the old swap file off"; exit 1; }; fi
-                  rm -f ${'$'}f ${'$'}p
+                  rm -f ${'$'}{f} ${'$'}{p}; sync
                   avail=${'$'}(( ${'$'}(df -k /data | awk 'NR==2{print ${'$'}4}') / 1048576 ))
                   size=$gb
                   if [ ${'$'}(( avail - $RESERVE_GB )) -lt ${'$'}size ]; then size=${'$'}(( avail - $RESERVE_GB )); fi
-                  if [ ${'$'}size -lt 1 ]; then echo "swap: skipped, only ${'$'}avail GiB free on /data"; exit 0; fi
+                  if [ ${'$'}size -lt 1 ]; then echo "swap: not enough space: ${'$'}avail GiB free on /data, $RESERVE_GB GiB must stay free"; exit 1; fi
                   [ ${'$'}size != $gb ] && echo "only ${'$'}avail GiB free: making ${'$'}size GiB instead of $gb"
                   want=${'$'}(( size * 1073741824 ))
-                  touch ${'$'}f && chmod 600 ${'$'}f
-                  # f2fs (android12-5.10): fallocate on an unpinned file only reserves blocks, which
-                  # swapon sees as holes (EINVAL). Pin first and fallocate, or else write real zeros;
-                  # swapon then moves blocks onto section boundaries itself and pins the file.
-                  pinned=
-                  command -v f2fs_io >/dev/null 2>&1 && f2fs_io pinfile set ${'$'}f >/dev/null 2>&1 && pinned=1
-                  if [ -n "${'$'}pinned" ] && fallocate -l ${'$'}want ${'$'}f 2>/dev/null; then new=1; else echo ${'$'}want > ${'$'}p; cur=0; fi
-                fi
-                if [ -f ${'$'}p ]; then
-                  # Zeros in 256 MiB chunks: resumable from the last whole chunk, cancellable between chunks.
+                  : > ${'$'}f && chmod 600 ${'$'}f
+                  echo ${'$'}want > ${'$'}p; cur=0
+                  # f2fs: fallocate on an unpinned file only reserves blocks, which swapon sees as holes.
+                  # So fallocate only after pinning; otherwise write real zeros below.
+                  if [ "${'$'}1" != dd ] && command -v f2fs_io >/dev/null 2>&1 && f2fs_io pinfile set ${'$'}f >/dev/null 2>&1 \
+                    && fallocate -l ${'$'}want ${'$'}f 2>/dev/null && [ "${'$'}(stat -c %s ${'$'}f)" = "${'$'}want" ]; then
+                    rm -f ${'$'}p
+                  fi
+                }
+                # Zeros in 256 MiB chunks: resumable from the last whole chunk, cancellable between chunks.
+                fill() {
+                  [ -f ${'$'}p ] || return 0
                   i=${'$'}(( cur / 268435456 )); n=${'$'}(( want / 268435456 ))
                   while [ ${'$'}i -lt ${'$'}n ]; do
                     if [ -f ${'$'}c ]; then rm -f ${'$'}c; echo "swap: paused at ${'$'}(( i * 256 )) of ${'$'}(( n * 256 )) MiB, pick the size again to resume"; exit 0; fi
                     dd if=/dev/zero of=${'$'}f bs=1048576 count=256 seek=${'$'}(( i * 256 )) conv=notrunc 2>/dev/null || { echo "swap: couldn't write the swap file (kept, pick the size again to resume)"; exit 1; }
                     i=${'$'}(( i + 1 )); echo "progress ${'$'}(( i * 256 )) ${'$'}(( n * 256 ))"
                   done
-                  sync; rm -f ${'$'}p; new=1
-                fi
-                if [ -n "${'$'}new" ]; then
-                  chmod 600 ${'$'}f
-                  mks ${'$'}f >/dev/null || { rm -f ${'$'}f; echo "swap: mkswap failed"; exit 1; }
+                  rm -f ${'$'}p
+                }
+                # chmod, sync, check the real size, then a fresh signature for exactly that size.
+                format() {
+                  chmod 600 ${'$'}f; sync
+                  got=${'$'}(stat -c %s ${'$'}f)
+                  [ "${'$'}got" = "${'$'}want" ] || { echo "swap: the file is ${'$'}got bytes, expected ${'$'}want"; rm -f ${'$'}f; exit 1; }
+                  mks ${'$'}f >/dev/null 2>&1 || { rm -f ${'$'}f; echo "swap: mkswap failed"; exit 1; }
+                  sync
+                }
+                cur=0; [ -f ${'$'}f ] && cur=${'$'}(stat -c %s ${'$'}f)
+                if [ -f ${'$'}p ] && [ "${'$'}(cat ${'$'}p)" = "${'$'}want" ] && [ "${'$'}cur" -le "${'$'}want" ]; then
+                  echo "resuming the swap file at ${'$'}(( cur / 1048576 )) MiB"; fill; format
+                elif [ ! -f ${'$'}f ] || [ "${'$'}cur" != "${'$'}want" ] || [ -f ${'$'}p ]; then
+                  create; fill; format
+                elif ! isOn; then
+                  # Same size but maybe an old signature: re-sign it; mkswap is cheap.
+                  format
                 fi
                 if ! isOn; then
                   # No -p: the kernel ranks it below zram, which is faster.
                   if ! err=${'$'}(son ${'$'}f 2>&1); then
                     k=${'$'}(dmesg 2>/dev/null | grep -iE 'swap|f2fs' | tail -n 2 | tr '\n' ' ')
-                    echo "swapon on the file failed: ${'$'}err ${'$'}k"
-                    # Fallback: swap through a loop device (slower, but needs no f2fs swapfile support).
-                    lo=${'$'}(losetup -f 2>/dev/null) && losetup ${'$'}lo ${'$'}f 2>/dev/null && son ${'$'}lo 2>/dev/null \
-                      && echo "swap: on via loop device ${'$'}lo" && exit 0
-                    [ -n "${'$'}lo" ] && losetup -d ${'$'}lo 2>/dev/null
-                    echo "swap: swapon failed: ${'$'}err ${'$'}k"; exit 1
+                    # A stale or hole-y file: recreate it once with real zeros, then try again.
+                    echo "swapon failed (${'$'}err ${'$'}k), recreating the swap file"
+                    create dd; fill; format
+                    err=${'$'}(son ${'$'}f 2>&1) || {
+                      k=${'$'}(dmesg 2>/dev/null | grep -iE 'swap|f2fs' | tail -n 2 | tr '\n' ' ')
+                      # Last resort: swap through a loop device (slower, needs no f2fs swapfile support).
+                      lo=${'$'}(losetup -f 2>/dev/null) && losetup ${'$'}lo ${'$'}f 2>/dev/null && son ${'$'}lo 2>/dev/null \
+                        && echo "swap: on via loop device ${'$'}lo" && exit 0
+                      [ -n "${'$'}lo" ] && losetup -d ${'$'}lo 2>/dev/null
+                      echo "swap: swapon failed: ${'$'}err ${'$'}k"; exit 1
+                    }
                   fi
                 fi
                 """.trimIndent() + "\n" + STATUS_SCRIPT.substringAfter("\n")
