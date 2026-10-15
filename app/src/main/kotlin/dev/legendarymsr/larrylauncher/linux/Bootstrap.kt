@@ -282,6 +282,8 @@ class Bootstrap(
             }) { guest(USE_REBUILD_SCRIPT) },
             // The default non-root user, with doas for root; also for installs from before it existed.
             Step("user-1", Stage.Packages, "Adding the user legend", network = true) { guest(USER_SCRIPT) },
+            // legenddots (nvim, tmux, foot, fuzzel, fastfetch, dillo) for root and legend, terminal or desktop.
+            Step("legenddots-1", Stage.Packages, "Linking legenddots", network = true) { guest(LEGENDDOTS_SCRIPT) },
             Step("keymap-1", Stage.Packages, "Compiling keymap", network = false, isDone = { chroot.keymap.exists() }) { compileKeymap() },
         )
 

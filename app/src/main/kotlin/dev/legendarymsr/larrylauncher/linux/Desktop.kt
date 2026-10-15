@@ -218,6 +218,21 @@ class Desktop(
 /** The user's dotfiles, cloned into the guest's home and linked by its gentoo/chroot/dotfiles.sh. */
 internal const val LEGENDDOTS_URL = "https://github.com/legendarymsr/legenddots"
 
+/** The shared clone, readable by root and legend. */
+internal const val LEGENDDOTS_DIR = "/opt/legenddots"
+
+/** Links legenddots into /root and, if legend exists, /home/legend (owned by legend). No network. */
+internal const val LEGENDDOTS_RELINK =
+    "{ [ -f $LEGENDDOTS_DIR/gentoo/chroot/dotfiles.sh ] && { HOME=/root sh $LEGENDDOTS_DIR/gentoo/chroot/dotfiles.sh --no-pull; " +
+        "! id legend >/dev/null 2>&1 || HOME=/home/legend sh $LEGENDDOTS_DIR/gentoo/chroot/dotfiles.sh --no-pull; }; true; }"
+
+/** Clones or fast-forwards legenddots into [LEGENDDOTS_DIR] (git installed if missing), then [LEGENDDOTS_RELINK]. */
+internal val LEGENDDOTS_SCRIPT =
+    "{ command -v git >/dev/null 2>&1 || " + emergeInstall(listOf("dev-vcs/git")) + "; } && " +
+        "{ if [ -d $LEGENDDOTS_DIR/.git ]; then git -C $LEGENDDOTS_DIR pull --ff-only -q || echo 'legenddots: pull failed, linking what is there'; " +
+        "else rm -rf $LEGENDDOTS_DIR.tmp && git clone -q --depth 1 $LEGENDDOTS_URL $LEGENDDOTS_DIR.tmp && rm -rf $LEGENDDOTS_DIR && mv $LEGENDDOTS_DIR.tmp $LEGENDDOTS_DIR; fi; } && " +
+        "chmod -R a+rX $LEGENDDOTS_DIR && [ -f $LEGENDDOTS_DIR/gentoo/chroot/dotfiles.sh ] && $LEGENDDOTS_RELINK"
+
 /** Guest-wide software GL env, so niri (or any GL app) run from foot uses softpipe too. */
 internal val SOFTWARE_GL_ENV = listOf("LIBGL_ALWAYS_SOFTWARE=1", "GALLIUM_DRIVER=softpipe", "EGL_PLATFORM=wayland")
 
@@ -252,9 +267,8 @@ internal fun niriStartCommand(
             // Older desktop installs predate fastfetch: fetch it in the background (best effort, binpkg if any).
             "command -v fastfetch >/dev/null 2>&1 || { echo 'larrylauncher: installing fastfetch in the background'; (emerge --quiet --noreplace --getbinpkg app-misc/fastfetch > /tmp/.larrylauncher-fastfetch.log 2>&1 &) ; }; " +
             // Missing Dillo/xwayland-satellite are installed by DesktopExtras, a tracked job shown under Linux install.
-            // legenddots: cloned once into ~/legenddots, then its chroot script (re)links nvim, tmux, foot, fuzzel, fastfetch, dillo.
-            "command -v git >/dev/null 2>&1 && ( { [ -d \"\$HOME/legenddots/.git\" ] || git clone -q --depth 1 $LEGENDDOTS_URL \"\$HOME/legenddots\"; } && " +
-            "sh \"\$HOME/legenddots/gentoo/chroot/dotfiles.sh\" > /tmp/.larrylauncher-dotfiles.log 2>&1 & ) ; " +
+            // legenddots is cloned by setup ([LEGENDDOTS_SCRIPT]); here only a cheap re-link.
+            "( $LEGENDDOTS_RELINK > /tmp/.larrylauncher-dotfiles.log 2>&1 & ) ; " +
             "niri validate -c \"\$c\" 2>&1 | tail -n 5; " +
             (if (gpu) "exec $run niri -c \"\$c\" 2>&1" else "exec 2>&1; $software")
     return "sh -c " + shellQuote(script)

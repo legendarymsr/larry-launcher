@@ -333,6 +333,11 @@ class Runtime(
         }
         linux = true
         coverHtop.start()
+        // Cheap re-link of legenddots for root and legend; the clone itself is a setup step.
+        scope.launch(Dispatchers.IO) {
+            runCatching { chroot.process(dev.legendarymsr.larrylauncher.linux.LEGENDDOTS_RELINK).start().apply { inputStream.readBytes() }.waitFor() }
+                .onFailure { Log.w(TAG, "legenddots relink", it) }
+        }
         // The recent apps strip on home lists Linux apps before the app list is ever opened.
         scope.launch { refreshApps() }
         // Themes picked without Linux are written into the guest now.
