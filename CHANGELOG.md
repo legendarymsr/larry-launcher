@@ -3,6 +3,16 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 0.9.3 (versionCode 21) – 2026-10-15
+
+- Both Android 15 Larry kernels (plain and KernelSU-Next) now have ISO9660
+  (Joliet, zisofs), UDF and SquashFS (zlib, LZ4, LZO, XZ, zstd, xattrs,
+  direct file reads) built in, plus the netfilter addrtype match for
+  container networking. The exported symbol CRCs are unchanged from 0.9.2
+  (only crc_itu_t is new), so Samsung's vendor modules see the same ABI.
+- On KernelSU-Next, settings › kernel can update the KernelSU-Next kernel in
+  place; the saved Magisk boot stays the way back.
+
 ## 0.9.2 (versionCode 20) – 2026-10-14
 
 - Settings › kernel can switch from Magisk to KernelSU-Next (Android 15,

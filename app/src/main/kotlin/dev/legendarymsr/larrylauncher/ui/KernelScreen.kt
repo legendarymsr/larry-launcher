@@ -91,6 +91,7 @@ fun KernelScreen(
                 item { Action("back up boot", "copy the boot partition to /sdcard/LarryLauncher/backup") { run { kernel.backup() } } }
                 if (!ksu) item { Action("flash the Larry kernel", "backs up boot first, then flashes; keeps Magisk") { confirmFlash = true } }
                 if (!ksu && ksuBuild != null) item { Action("switch to KernelSU-Next", "Magisk out, KernelSU-Next in; the Magisk boot is kept to come back") { confirmKsu = true } }
+                if (ksu && ksuBuild != null) item { Action("update the KernelSU-Next kernel", "backs up boot, then flashes the current KernelSU-Next build") { run { kernel.switchToKsu() } } }
                 if (ksu) item { Action("back to Magisk", "write the saved Magisk boot back and turn the modules on again") { confirmMagisk = true } }
                 items(backups, key = { it }) { b ->
                     Action("restore ${b.substringAfterLast('/')}", "write this backup back to boot") { confirmRestore = b }

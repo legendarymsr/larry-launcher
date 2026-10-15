@@ -199,9 +199,17 @@ class Kernel(
         job("switching to KernelSU-Next") {
             val d = device()
             d.refusal?.let { say("refused: $it"); return@job false }
-            if (ksuRunning(d)) { say("KernelSU-Next is already running."); return@job false }
             val build = KSU_BUILDS[d.android]
             if (build == null) { say("refused: no KernelSU-Next kernel for Android ${d.android}."); return@job false }
+            if (ksuRunning(d)) {
+                // Already on KernelSU-Next: just a newer KSU kernel over the stock ramdisk. The saved Magisk boot stays the way back.
+                say("KernelSU-Next is running: updating its kernel to ${build.version}")
+                val zip = fetch(build.url, build.sha256, "larry-kernel-ksun-b4q-android${d.android}.zip") ?: return@job false
+                backupInner() ?: return@job false
+                val code = runZip(zip)
+                say(if (code == 0) "done. reboot to use it." else "flash failed (exit $code).")
+                return@job code == 0
+            }
             if (root("[ -d /data/adb/magisk ] || command -v magisk >/dev/null") != 0) {
                 say("refused: Magisk isn't installed, so there's no Magisk boot to come back to.")
                 return@job false
@@ -347,12 +355,12 @@ class Kernel(
         /** The same kernels plus KernelSU-Next v3.4.2, with Samsung's UH/RKP/KDP/DEFEX/PROCA/FIVE off. */
         val KSU_BUILDS =
             mapOf(
-                "15" to KernelBuild("5.10.226-android12-9-larry-ksun", "https://github.com/legendarymsr/larry-launcher/releases/download/v0.9.2-debug/larry-kernel-ksun-b4q-android15.zip", "9ad24792b89edf59b2791954a6f18f26ead89ca3016cbb2fc4ebccd368091d94", firmware = "F721BXXSAHYI1"),
+                "15" to KernelBuild("5.10.226-android12-9-larry-ksun", "https://github.com/legendarymsr/larry-launcher/releases/download/v0.9.3-debug/larry-kernel-ksun-b4q-android15.zip", "33f7896f5f6dfd02420bc9b4d3f2cd07b618ee23d5940799ed588f680e588293", firmware = "F721BXXSAHYI1"),
             )
 
         val BUILDS =
             mapOf(
-                "15" to KernelBuild("5.10.226-android12-9-larry", "https://github.com/legendarymsr/larry-launcher/releases/download/v0.8.1-debug/larry-kernel-b4q-android15.zip", "dd25c13cba31401689bd3450b7f197b1372061e2212273cacce8625da2317cae", firmware = "F721BXXSAHYI1"),
+                "15" to KernelBuild("5.10.226-android12-9-larry", "https://github.com/legendarymsr/larry-launcher/releases/download/v0.9.3-debug/larry-kernel-b4q-android15.zip", "63b6373f0040ab9cea19b34f19c9a3dd6d217a26f9235f069ba625336042e561", firmware = "F721BXXSAHYI1"),
                 "16" to KernelBuild("5.10.236-android12-9-larry", "https://github.com/legendarymsr/larry-launcher/releases/download/v0.8.0-debug/larry-kernel-b4q.zip", "dbd302a42bae1f2ee3db4d47011c2b9586d3799b571e032a120ce41dccf0a1a1"),
             )
     }
