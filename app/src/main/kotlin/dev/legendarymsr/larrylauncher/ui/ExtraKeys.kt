@@ -1,6 +1,9 @@
 package dev.legendarymsr.larrylauncher.ui
 
+import android.content.ClipboardManager
+import android.content.Context
 import android.view.HapticFeedbackConstants
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,6 +36,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
@@ -64,6 +68,13 @@ private data class Plain(
     val held: Int? = null,
 ) : ExtraKey
 
+/**
+ * Types Android's clipboard into the focused window. Read here, on the tap, because
+ * Android only hands the clipboard to the focused app: a Shift+Insert left foot asking
+ * the compositor later, from a background thread, and often came back empty.
+ */
+private data object Paste : ExtraKey
+
 private data class Sticky(
     val label: String,
     val modifier: (KeyboardBridge) -> StickyModifier,
@@ -90,7 +101,7 @@ private val Layout: List<List<ExtraKey>> =
             Plain("down", Keys.KEY_DOWN, repeats = true, arrow = 180f),
             Plain("right", Keys.KEY_RIGHT, repeats = true, arrow = 90f),
             Plain("pgdn", Keys.KEY_PAGEDOWN, repeats = true),
-            Plain("paste", Keys.KEY_INSERT, held = Keys.KEY_LEFTSHIFT),
+            Paste,
         ),
     )
 
@@ -134,6 +145,7 @@ fun ExtraKeys(
                     when (key) {
                         is Plain -> PlainKey(key, bridge, cap)
                         is Sticky -> StickyKey(key, key.modifier(bridge), cap)
+                        Paste -> PasteKey(bridge, cap)
                     }
                 }
             }
@@ -179,6 +191,54 @@ private fun PlainKey(
         }
     }
 }
+
+@Composable
+private fun PasteKey(
+    bridge: KeyboardBridge,
+    modifier: Modifier,
+) {
+    val view = LocalView.current
+    val context = LocalContext.current
+    var pressed by remember { mutableStateOf(false) }
+    KeyCap(
+        modifier.pointerInput(Unit) {
+            presses { _ ->
+                pressed = true
+                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                val up = waitForUpOrCancellation() != null
+                pressed = false
+                if (up) {
+                    val text = clipboardText(context)
+                    if (text.isNullOrEmpty()) {
+                        Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                    } else {
+                        bridge.type(text.take(MaxPaste))
+                    }
+                }
+            }
+        },
+        fill = if (pressed) Palette.accent else Palette.surface,
+    ) {
+        BasicText("paste", style = Mono.copy(color = if (pressed) Palette.background else Palette.foreground))
+    }
+}
+
+/** Android's clipboard as text, read on the main thread while we have focus. */
+private fun clipboardText(context: Context): String? =
+    runCatching {
+        context
+            .getSystemService(ClipboardManager::class.java)
+            ?.primaryClip
+            ?.takeIf { it.itemCount > 0 }
+            ?.getItemAt(0)
+            ?.coerceToText(context)
+            ?.toString()
+            // Terminals take Enter as CR; CRLF from Windows text would double up.
+            ?.replace("\r\n", "\n")
+    }.getOrNull()
+
+/** Typed key by key, so a huge clip would take ages; more than this is cut off. */
+private const val MaxPaste = 16 * 1024
 
 @Composable
 private fun StickyKey(
