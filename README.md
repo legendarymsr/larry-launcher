@@ -22,6 +22,13 @@ The home is niri-like, for a phone:
   Super+1..9 jump to a workspace, Super+D app list, Super+Enter terminal.
 - One theme: Tokyo Night.
 
+### Default user
+
+Setup creates a non-root user `legend` (password `legend`, groups wheel, audio, video) with
+`doas` for root (`permit persist :wheel`). Change the password with `passwd` as legend. The
+terminal and desktop still start as root; use `su - legend` to switch. The rootfs is
+bind-mounted onto itself with `suid` on each start, since Android's `/data` is `nosuid`.
+
 ## Gentoo desktop (real niri, optional)
 
 Settings › gentoo desktop installs `gui-wm/niri` and `gui-apps/fuzzel` and

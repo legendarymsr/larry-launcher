@@ -278,6 +278,11 @@ class Chroot(
             listOf(
                 // Private, so nothing leaks to Android's mounts; best effort (not every mount has it).
                 "\$MOUNT --make-rprivate / 2>/dev/null || \$MOUNT -o remount,private / 2>/dev/null || true",
+                // /data is nosuid, so doas and su in the guest would be plain binaries: bind the rootfs onto
+                // itself and remount that bind suid, before every other mount so they land on top of it.
+                // The namespace is private, so it goes away with the guest; the guard skips a second bind.
+                "grep -q \" ${rootfs.path} \" /proc/self/mountinfo || m -o bind $r $r",
+                "m -o remount,bind,suid $r",
                 "mkdir -p $r/dev $r/proc $r/sys $r/etc",
                 "{ [ -e $r/etc/fstab ] || : > $r/etc/fstab; }",
                 "m -o rbind /dev $r/dev",

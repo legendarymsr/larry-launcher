@@ -222,6 +222,16 @@ private class Step(
  * runs every [steps] entry behind the setup screen; after an app update only
  * The new ones run, see [Step].
  */
+/**
+ * Creates the user legend (password legend) unless it exists, so a changed password is kept, and
+ * installs doas for :wheel. doas needs setuid, which works because [Chroot] remounts the rootfs suid.
+ */
+internal val USER_SCRIPT =
+    "{ id legend >/dev/null 2>&1 || { useradd -m -G wheel,audio,video -s /bin/bash legend && echo 'legend:legend' | chpasswd; }; } && " +
+        "{ command -v doas >/dev/null 2>&1 || " + emergeInstall(listOf("app-admin/doas")) + "; } && " +
+        "printf 'permit persist :wheel\\n' > /etc/doas.conf && chown root:root /etc/doas.conf && chmod 0400 /etc/doas.conf && " +
+        "chown root:root /usr/bin/doas && chmod u+s /usr/bin/doas"
+
 class Bootstrap(
     private val context: Context,
     private val chroot: Chroot,
@@ -267,6 +277,8 @@ class Bootstrap(
             Step("use-$USE_VERSION", Stage.Packages, "Rebuilding for changed USE flags", network = true, isDone = {
                 "use-$USE_VERSION" in journal || runCatching { chroot.hostFile(USE_VERSION_FILE).readText().trim() == USE_VERSION }.getOrDefault(false)
             }) { guest(USE_REBUILD_SCRIPT) },
+            // The default non-root user, with doas for root; also for installs from before it existed.
+            Step("user-1", Stage.Packages, "Adding the user legend", network = true) { guest(USER_SCRIPT) },
             Step("keymap-1", Stage.Packages, "Compiling keymap", network = false, isDone = { chroot.keymap.exists() }) { compileKeymap() },
         )
 
