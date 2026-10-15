@@ -68,6 +68,19 @@
             android:label="btop"
             android:targetActivity=".LinuxWindowActivity" />
 
+        <!-- htop on a flip's cover screen; launched there with setLaunchDisplayId while folded. -->
+        <activity
+            android:name=".CoverHtopActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="htop"
+            android:resizeableActivity="true"
+            android:showWhenLocked="true"
+            android:taskAffinity="dev.legendarymsr.larrylauncher.cover"
+            android:theme="@style/Theme.LarryLauncher.Window">
+        </activity>
+
         <activity
             android:name=".FilesActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|density|uiMode"

@@ -101,6 +101,9 @@ class Runtime(
     val gpu = Gpu(context, chroot)
     val swap = dev.legendarymsr.larrylauncher.linux.Swap(context, chroot)
 
+    /** htop on a flip phone's cover screen when folded; see [CoverHtop]. */
+    val coverHtop = CoverHtop(context, chroot)
+
     /** The launcher's own provided files (default widgets, their docs); see [Provisioner]. */
     private val launcherFiles = Provisioner(chroot.filesDir, LauncherData.LAUNCHER_MANIFEST, listOf(widgets::managed))
 
@@ -329,6 +332,7 @@ class Runtime(
             terminalFont.write()
         }
         linux = true
+        coverHtop.start()
         // The recent apps strip on home lists Linux apps before the app list is ever opened.
         scope.launch { refreshApps() }
         // Themes picked without Linux are written into the guest now.

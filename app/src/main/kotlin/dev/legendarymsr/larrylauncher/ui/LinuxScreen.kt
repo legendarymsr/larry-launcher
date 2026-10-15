@@ -145,6 +145,7 @@ private fun Installed(runtime: Runtime) {
     ExtrasRow(runtime)
     Spacer(Modifier.height(8.dp))
     SwapRow(runtime)
+    CoverHtopRow(runtime)
     if (runtime.gpu.supported) {
         Spacer(Modifier.height(8.dp))
         GpuRow(runtime)
@@ -204,6 +205,25 @@ private fun ExtrasRow(runtime: Runtime) {
                 BracketAction("retry", Palette.accent) { runtime.retryExtras() }
             }
             ExtrasState.Idle -> {}
+        }
+    }
+}
+
+/** htop on a Galaxy Z Flip's cover screen while folded; does nothing on other phones. */
+@Composable
+private fun CoverHtopRow(runtime: Runtime) {
+    val cover = runtime.coverHtop
+    Spacer(Modifier.height(8.dp))
+    Column(Modifier.fillMaxWidth().clip(LauncherStyle.shape(12.dp)).background(Palette.surface).padding(14.dp)) {
+        BasicText("cover screen htop", style = Mono.copy(fontSize = TextSize.Item))
+        BasicText(
+            "htop as legend on the cover display while folded (flip phones only)",
+            style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small),
+        )
+        Spacer(Modifier.height(6.dp))
+        Row {
+            BracketAction("on", if (cover.enabled) Palette.green else Palette.accent) { cover.turn(true) }
+            BracketAction("off", if (!cover.enabled) Palette.green else Palette.accent) { cover.turn(false) }
         }
     }
 }
