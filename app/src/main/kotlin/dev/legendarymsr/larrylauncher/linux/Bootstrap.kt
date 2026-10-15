@@ -228,9 +228,12 @@ private class Step(
  */
 internal val USER_SCRIPT =
     "{ id legend >/dev/null 2>&1 || { useradd -m -G wheel,audio,video -s /bin/bash legend && echo 'legend:legend' | chpasswd; }; } && " +
-        "{ command -v doas >/dev/null 2>&1 || " + emergeInstall(listOf("app-admin/doas")) + "; } && " +
-        "printf 'permit persist :wheel\\n' > /etc/doas.conf && chown root:root /etc/doas.conf && chmod 0400 /etc/doas.conf && " +
-        "chown root:root /usr/bin/doas && chmod u+s /usr/bin/doas"
+        "{ command -v doas >/dev/null 2>&1 || " + emergeInstall(listOf("app-admin/doas")) + " || echo 'larrylauncher: warning: doas did not install'; } ; " +
+        "if [ -e /usr/bin/doas ]; then printf 'permit persist :wheel\\n' > /etc/doas.conf && chown root:root /etc/doas.conf && chmod 0400 /etc/doas.conf && " +
+        "chown root:root /usr/bin/doas && chmod u+s /usr/bin/doas; " +
+        "awk '\$2 == \"/\" && \$4 ~ /nosuid/ { f = 1 } END { exit !f }' /proc/self/mounts 2>/dev/null && " +
+        "echo 'larrylauncher: warning: the rootfs is nosuid, so doas cannot elevate (log in as root instead)'; fi; " +
+        "id legend >/dev/null 2>&1"
 
 class Bootstrap(
     private val context: Context,
@@ -426,7 +429,9 @@ class Bootstrap(
 
     private suspend fun runSteps() =
         withContext(Dispatchers.IO) {
-            val todo = backlog.filterNot { it.done() }
+            // Every pending step, not just the ones left at startup: a retry also picks up
+            // steps that failed before the home screen or after an app update.
+            val todo = (backlog + steps.filter { it.network }).distinct().filterNot { it.done() }
             if (todo.isEmpty()) return@withContext
             for (step in todo) {
                 _updates.value = JobState.Working(step.label, emptyList())

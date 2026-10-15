@@ -413,7 +413,7 @@ class Runtime(
 
     /** Re-runs update steps that failed, e.g. offline; see [Bootstrap.updates]. */
     fun retryUpdates() {
-        if (linux) scope.launch { bootstrap.runBacklog() }
+        if (linux || bootstrap.wanted) scope.launch { bootstrap.runBacklog() }
     }
 
     /**

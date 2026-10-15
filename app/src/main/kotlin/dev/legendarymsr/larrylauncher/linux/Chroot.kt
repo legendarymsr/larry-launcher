@@ -281,8 +281,14 @@ class Chroot(
                 // /data is nosuid, so doas and su in the guest would be plain binaries: bind the rootfs onto
                 // itself and remount that bind suid, before every other mount so they land on top of it.
                 // The namespace is private, so it goes away with the guest; the guard skips a second bind.
-                "grep -q \" ${rootfs.path} \" /proc/self/mountinfo || m -o bind $r $r",
-                "m -o remount,bind,suid $r",
+                // Canonical path (/data/user/0 is /data/data), matched against mountinfo's field 5.
+                // Never fatal: without it the guest still runs, only setuid binaries don't elevate.
+                "rr=\$(readlink -f $r 2>/dev/null); [ -n \"\$rr\" ] || rr=$r",
+                "if ! awk -v p=\"\$rr\" '\$5 == p { f = 1 } END { exit !f }' /proc/self/mountinfo 2>/dev/null; then " +
+                    "\$MOUNT -o bind \"\$rr\" \"\$rr\" 2>/dev/null || /system/bin/mount -o bind \"\$rr\" \"\$rr\" 2>/dev/null; fi",
+                "\$MOUNT -o remount,bind,suid \"\$rr\" 2>/dev/null || /system/bin/mount -o remount,bind,suid \"\$rr\" 2>/dev/null || " +
+                    "\$MOUNT -o remount,suid \"\$rr\" 2>/dev/null || /system/bin/mount -o remount,suid \"\$rr\" 2>/dev/null || " +
+                    "echo 'larrylauncher: warning: could not remount the rootfs suid; doas and su will not elevate'",
                 "mkdir -p $r/dev $r/proc $r/sys $r/etc",
                 "{ [ -e $r/etc/fstab ] || : > $r/etc/fstab; }",
                 "m -o rbind /dev $r/dev",
