@@ -45,6 +45,15 @@ Settings also has a De-Google screen (any rooted phone): Google apps grouped by 
 
 Kernel build recipes are in `kernel/b4q/`.
 
+### What the 0.9.3 kernel additions are for
+
+These only add things the Gentoo chroot can do; day-to-day phone behaviour is unchanged.
+
+- **ISO9660** (with Joliet/zisofs): `mount -o loop` CD/DVD images such as Linux ISOs and copy files out of them.
+- **UDF**: DVD/Blu-ray images and some large USB drives.
+- **SquashFS** (zlib, LZ4, LZO, XZ, zstd): the compressed read-only images inside live ISOs, AppImages and some snapshots; also lets you pack a big folder into one small mountable file.
+- **xt_addrtype**: a firewall match that container tools like Docker and LXC use for their networking.
+
 ## Building
 
 ```sh
