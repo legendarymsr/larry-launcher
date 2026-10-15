@@ -34,7 +34,7 @@ and several GB. Nested, niri's Mod key is Alt.
 
 ## Galaxy Z Flip4 extras (SM-F721B, rooted)
 
-On a rooted Samsung Galaxy Z Flip4 (`b4q`), settings › kernel can flash a custom Larry kernel built from Samsung's official Android 15 source (firmware `F721BXXSAHYI1`), with PID namespaces for the Gentoo chroot. Both kernels are confirmed booting on a Flip4:
+On a rooted Samsung Galaxy Z Flip4 (`b4q`), settings › kernel can flash a custom Larry kernel built from Samsung's official Android 15 source (firmware `F721BXXSAHYI1`), with PID namespaces for the Gentoo chroot:
 
 - `larry` kernel: stock plus PID namespaces, keeps Magisk.
 - `larry-ksun` kernel: adds KernelSU-Next, with a one-tap switch from Magisk and a "back to Magisk" button.
