@@ -41,7 +41,7 @@ and several GB. Nested, niri's Mod key is Alt.
 
 ### Cover screen htop
 
-![htop on the Galaxy Z Flip4 cover screen](docs/cover-htop.jpg)
+![htop on the Galaxy Z Flip4 cover screen](docs/cover-htop.png)
 
 Settings › linux › cover screen htop (on by default) shows htop, as legend, on a flip's
 cover display while folded. One UI only lets allowlisted apps there, so on the Flip4 it
