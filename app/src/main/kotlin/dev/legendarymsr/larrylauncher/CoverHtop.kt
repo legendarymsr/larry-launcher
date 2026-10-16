@@ -75,6 +75,7 @@ class CoverHtop(
     private fun check() {
         val cover = coverDisplay()
         val want = enabled && chroot.rootGranted && cover != null && folded(cover)
+        Log.d(TAG, "cover=${cover?.displayId} state=${cover?.state} main=${dm.getDisplay(Display.DEFAULT_DISPLAY)?.state} want=$want")
         val shown = CoverHtopActivity.current?.get()
         if (!want) {
             shown?.finish()
@@ -111,7 +112,9 @@ class CoverHtopActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent?.getBooleanExtra("finish", false) == true) { finish(); return }
         current = WeakReference(this)
+        Log.i("CoverHtop", "shown on display ${display?.displayId}")
         setShowWhenLocked(true)
         setTurnScreenOn(false)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -126,6 +129,12 @@ class CoverHtopActivity : Activity() {
                 text = "starting htop…"
             }
         setContentView(view)
+    }
+
+    /** The root module's unfold signal: `am start ... --ez finish true`. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra("finish", false)) finish()
     }
 
     override fun onStart() {
@@ -163,6 +172,7 @@ class CoverHtopActivity : Activity() {
         val rows = (h / paint.fontSpacing).toInt().coerceAtLeast(10)
         val cols = (w / paint.measureText("M")).toInt().coerceAtLeast(20)
         val p = runCatching { chroot.process(guestScript(cols, rows)).start() }.getOrElse {
+            Log.w("CoverHtop", "starting htop", it)
             view.text = "cover htop: ${it.message}"
             return
         }

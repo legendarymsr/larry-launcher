@@ -1,0 +1,6 @@
+id=larry-cover-htop
+name=Larry cover screen htop
+version=1.0
+versionCode=1
+author=legendarymsr
+description=Starts Larry Launcher's cover-screen htop on the Galaxy Z Flip cover display when folded (root, no Samsung allowlist).

@@ -39,6 +39,17 @@ from the GURU overlay (niri is keyworded `~amd64` only, so it's accepted with
 (Rust ≥ 1.87 via `dev-lang/rust-bin`, plus clang for bindgen): expect hours
 and several GB. Nested, niri's Mod key is Alt.
 
+### Cover screen htop
+
+Settings › linux › cover screen htop (on by default) shows htop, as legend, on a flip's
+cover display while folded. One UI only lets allowlisted apps there, so on the Flip4 it
+needs the root module in `modules/cover-htop` (release asset `larry-cover-htop-module.zip`,
+install from KernelSU-Next or Magisk). Its `service.sh` watches the fold state and runs
+`am start --display 1 -n dev.legendarymsr.larrylauncher/.CoverHtopActivity` as root.
+Tune `/data/adb/larry-cover-htop.conf` (cover display id, folded device states) using
+`/data/local/tmp/larry-cover-htop.log`. Without root, Good Lock › MultiStar › Launcher
+widget is Samsung's own way to put apps on the cover screen.
+
 ## Galaxy Z Flip4 extras (SM-F721B, rooted)
 
 On a rooted Samsung Galaxy Z Flip4 (`b4q`), settings › kernel can flash a custom Larry kernel built from Samsung's official Android 15 source (firmware `F721BXXSAHYI1`), with PID namespaces for the Gentoo chroot:
