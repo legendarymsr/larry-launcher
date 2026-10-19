@@ -47,7 +47,22 @@ class Kernel(
         val sha256: String,
         /** The exact firmware build its source matches, when it's tied to one. */
         val firmware: String? = null,
-    )
+        /** Boots KVM in nVHE host mode (kvm-arm.mode=nvhe) instead of Samsung's protected pKVM, so QEMU can use /dev/kvm. */
+        val kvm: Boolean = false,
+    ) {
+        /** The cache file name, from the URL, so a new build never reuses an old zip. */
+        val fileName: String get() = url.substringAfterLast('/')
+    }
+
+    /** KVM on the running kernel: the kvm-arm.mode it booted with (null when the command line doesn't set one) and whether /dev/kvm exists. */
+    data class Kvm(
+        val mode: String?,
+        val dev: Boolean,
+    ) {
+        val nvhe: Boolean get() = mode == "nvhe"
+        val summary: String
+            get() = "KVM ${mode ?: "default"}, " + if (dev) "/dev/kvm present" else "no /dev/kvm"
+    }
 
     val log = MutableStateFlow<List<String>>(emptyList())
     private val _busy = MutableStateFlow<String?>(null)
@@ -70,6 +85,25 @@ class Kernel(
         runCatching {
             ProcessBuilder("getprop", name).start().inputStream.bufferedReader().readText().trim()
         }.getOrDefault("")
+
+    /** Reads kvm-arm.mode from /proc/cmdline (last one wins, as in the kernel) and checks /dev/kvm. Root; off the main thread. */
+    fun kvm(): Kvm? {
+        var mode: String? = null
+        var dev: Boolean? = null
+        chroot.rootShell(
+            """
+            m=${'$'}(tr ' ' '\n' < /proc/cmdline | sed -n 's/^kvm-arm\.mode=//p' | tail -n 1)
+            echo "mode=${'$'}m"
+            if [ -e /dev/kvm ]; then echo dev=1; else echo dev=0; fi
+            """.trimIndent(),
+        ) {
+            when {
+                it.startsWith("mode=") -> mode = it.removePrefix("mode=").trim().ifEmpty { null }
+                it.startsWith("dev=") -> dev = it.trim() == "dev=1"
+            }
+        }
+        return dev?.let { Kvm(mode, it) }
+    }
 
     /** Boot backups, newest first, as root sees them in /sdcard/LarryLauncher/backup. */
     fun backups(): List<String> {
@@ -132,7 +166,6 @@ class Kernel(
         return if (code == 0) path else null.also { say("backup failed, nothing was flashed") }
     }
 
-    /** Downloads the Larry kernel zip, checks it, backs up boot, then flashes the kernel. Off the main thread. */
     /** Downloads [url] into the cache unless it's already there, and checks its sha256. */
     private fun fetch(
         url: String,
@@ -182,7 +215,7 @@ class Kernel(
             }
             val build = BUILDS.getValue(d.android)
             say("Android ${d.android}: Larry kernel ${build.version}")
-            val zip = fetch(build.url, build.sha256, "larry-kernel-b4q-android${d.android}.zip") ?: return@job false
+            val zip = fetch(build.url, build.sha256, build.fileName) ?: return@job false
             backupInner() ?: return@job false
             val code = runZip(zip)
             if (code == 0) say("done. reboot to start the Larry kernel. If it doesn't boot, hold power + volume down and use the boot backup.") else say("flash failed (exit $code). Boot was not rewritten unless the log says so; restore the backup if unsure.")
@@ -203,18 +236,24 @@ class Kernel(
             if (build == null) { say("refused: no KernelSU-Next kernel for Android ${d.android}."); return@job false }
             if (ksuRunning(d)) {
                 // Already on KernelSU-Next: just a newer KSU kernel over the stock ramdisk. The saved Magisk boot stays the way back.
-                say("KernelSU-Next is running: updating its kernel to ${build.version}")
-                val zip = fetch(build.url, build.sha256, "larry-kernel-ksun-b4q-android${d.android}.zip") ?: return@job false
+                say("KernelSU-Next is running: updating its kernel to ${build.version}" + if (build.kvm) " with KVM in nVHE host mode" else "")
+                val zip = fetch(build.url, build.sha256, build.fileName) ?: return@job false
                 backupInner() ?: return@job false
                 val code = runZip(zip)
-                say(if (code == 0) "done. reboot to use it." else "flash failed (exit $code).")
+                say(
+                    when {
+                        code != 0 -> "flash failed (exit $code)."
+                        build.kvm -> "done. reboot to use it; this screen then shows \"KVM nvhe, /dev/kvm present\". If /dev/kvm is still missing, check dmesg | grep -i kvm."
+                        else -> "done. reboot to use it."
+                    },
+                )
                 return@job code == 0
             }
             if (root("[ -d /data/adb/magisk ] || command -v magisk >/dev/null") != 0) {
                 say("refused: Magisk isn't installed, so there's no Magisk boot to come back to.")
                 return@job false
             }
-            val zip = fetch(build.url, build.sha256, "larry-kernel-ksun-b4q-android${d.android}.zip") ?: return@job false
+            val zip = fetch(build.url, build.sha256, build.fileName) ?: return@job false
             val apk = fetch(MANAGER_URL, MANAGER_SHA256, "ksunext-manager.apk") ?: return@job false
             val backup = backupInner() ?: return@job false
             say("step 1: the Magisk boot is saved as the way back")
@@ -352,10 +391,14 @@ class Kernel(
         const val MANAGER_URL = "https://github.com/KernelSU-Next/KernelSU-Next/releases/download/v3.4.2/KernelSU_Next_v3.4.2_33355-release.apk"
         const val MANAGER_SHA256 = "774a5511f7034a4930e881114e202319cbdc34c5aaaa5c7c6b6d2902364e4c58"
 
-        /** The same kernels plus KernelSU-Next v3.4.2, with Samsung's UH/RKP/KDP/DEFEX/PROCA/FIVE off. */
+        /**
+         * The same kernels plus KernelSU-Next v3.4.2, with Samsung's UH/RKP/KDP/DEFEX/PROCA/FIVE off.
+         * Android 15 boots KVM in nVHE host mode (kvm-arm.mode=nvhe, was protected) so QEMU gets /dev/kvm;
+         * the uname is unchanged from the 0.9.3 build, so [kvm] tells the two apart.
+         */
         val KSU_BUILDS =
             mapOf(
-                "15" to KernelBuild("5.10.226-android12-9-larry-ksun", "https://github.com/legendarymsr/larry-launcher/releases/download/v0.9.3-debug/larry-kernel-ksun-b4q-android15.zip", "33f7896f5f6dfd02420bc9b4d3f2cd07b618ee23d5940799ed588f680e588293", firmware = "F721BXXSAHYI1"),
+                "15" to KernelBuild("5.10.226-android12-9-larry-ksun", "https://github.com/legendarymsr/larry-launcher/releases/download/kernel-kvm-nvhe-v1.0.0/larry-kernel-ksun-kvm-nvhe-b4q-android15.zip", "ee2dd70db8c54721c4616f6bcf7988464a7868ca13f41af1eb86dd6cf4ad8557", firmware = "F721BXXSAHYI1", kvm = true),
             )
 
         val BUILDS =

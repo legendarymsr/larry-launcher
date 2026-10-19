@@ -17,8 +17,8 @@ android {
         applicationId = "dev.legendarymsr.larrylauncher"
         minSdk = 29
         targetSdk = 37
-        versionCode = 22
-        versionName = "1.0"
+        versionCode = 23
+        versionName = "1.0.7"
         ndk { abiFilters += "arm64-v8a" }
     }
 

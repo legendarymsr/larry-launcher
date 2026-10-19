@@ -3,6 +3,18 @@
 The most important changes in each release. The Play Store notes for a release
 are in `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
 
+## 1.0.7 (versionCode 23) – 2026-10-19
+
+- Settings › kernel offers the Android 15 KernelSU-Next kernel with KVM in
+  nVHE host mode (kvm-arm.mode=nvhe instead of Samsung's protected pKVM), so
+  QEMU can use /dev/kvm for arm64 guests. It's the same kernel otherwise,
+  still SM-F721B on F721BXXSAHYI1 only, from the kernel-kvm-nvhe-v1.0.0
+  release (sha256-checked).
+- The screen shows the running kvm-arm.mode and whether /dev/kvm exists. On
+  KernelSU-Next with protected KVM there's an "install the KVM kernel (nVHE)"
+  action; it backs up boot first and keeps the saved Magisk boot as the way
+  back. Switching from Magisk to KernelSU-Next now flashes the KVM kernel.
+
 ## 0.9.3 (versionCode 21) – 2026-10-15
 
 - Both Android 15 Larry kernels (plain and KernelSU-Next) now have ISO9660

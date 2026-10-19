@@ -1,0 +1,1 @@
+Settings › kernel: the Galaxy Z Flip4 KernelSU-Next kernel can now boot KVM in host mode (nVHE), so QEMU can use /dev/kvm. The screen shows the KVM mode and whether /dev/kvm exists, and offers to install the KVM kernel with a boot backup first.

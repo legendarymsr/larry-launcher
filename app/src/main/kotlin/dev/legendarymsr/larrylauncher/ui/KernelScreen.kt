@@ -45,11 +45,14 @@ fun KernelScreen(
     var confirmReboot by remember { mutableStateOf(false) }
     var confirmKsu by remember { mutableStateOf(false) }
     var confirmMagisk by remember { mutableStateOf(false) }
+    var confirmKvm by remember { mutableStateOf(false) }
+    var kvm by remember { mutableStateOf<Kernel.Kvm?>(null) }
     var refresh by remember { mutableStateOf(0) }
     LaunchedEffect(refresh) {
         withContext(Dispatchers.IO) {
             device = kernel.device()
             backups = kernel.backups()
+            kvm = kernel.kvm()
         }
     }
     fun run(block: () -> Unit) {
@@ -64,6 +67,8 @@ fun KernelScreen(
     val ksu = d != null && kernel.ksuRunning(d)
     val ksuBuild = d?.let { Kernel.KSU_BUILDS[it.android] }
     val running = build != null && d.kernel == build.version
+    val kvmBuild = ksuBuild?.kvm == true
+    val kvmOn = kvm?.nvhe == true
     OverlayPanel("kernel", onDismiss, contentWidth = ReadingWidth) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
@@ -73,11 +78,19 @@ fun KernelScreen(
                         d?.let { "${it.model} · ${it.device} · Android ${it.android} · ${it.build}" } ?: "",
                         style = Mono.copy(color = Palette.muted, fontSize = TextSize.Small),
                     )
+                    kvm?.let {
+                        BasicText(
+                            it.summary,
+                            style = Mono.copy(color = if (it.nvhe && it.dev) Palette.accent else Palette.muted, fontSize = TextSize.Small),
+                        )
+                    }
                     Spacer(Modifier.height(6.dp))
                     BasicText(
                         when {
                             d == null -> ""
                             refusal != null -> "can't flash here: $refusal"
+                            ksu && kvmOn -> "the Larry kernel with KernelSU-Next and KVM in nVHE host mode is running."
+                            ksu && kvmBuild -> "the Larry kernel with KernelSU-Next is running, with Samsung's protected KVM (pKVM), so QEMU gets no /dev/kvm. Install the KVM kernel below."
                             ksu -> "the Larry kernel with KernelSU-Next is running."
                             running -> "the Larry kernel is running."
                             else -> "Larry kernel ${build?.version}: Samsung's SM-F721B Android ${d.android} kernel, stock config plus PID namespaces. Only the kernel in boot changes; Magisk stays."
@@ -90,8 +103,19 @@ fun KernelScreen(
             if (busy == null && d != null && refusal == null) {
                 item { Action("back up boot", "copy the boot partition to /sdcard/LarryLauncher/backup") { run { kernel.backup() } } }
                 if (!ksu) item { Action("flash the Larry kernel", "backs up boot first, then flashes; keeps Magisk") { confirmFlash = true } }
-                if (!ksu && ksuBuild != null) item { Action("switch to KernelSU-Next", "Magisk out, KernelSU-Next in; the Magisk boot is kept to come back") { confirmKsu = true } }
-                if (ksu && ksuBuild != null) item { Action("update the KernelSU-Next kernel", "backs up boot, then flashes the current KernelSU-Next build") { run { kernel.switchToKsu() } } }
+                if (!ksu && ksuBuild != null) {
+                    item {
+                        Action(
+                            "switch to KernelSU-Next",
+                            "Magisk out, KernelSU-Next in; the Magisk boot is kept to come back" + if (kvmBuild) ". Comes with KVM in nVHE host mode for QEMU" else "",
+                        ) { confirmKsu = true }
+                    }
+                }
+                if (ksu && ksuBuild != null && kvmBuild && !kvmOn) {
+                    item { Action("install the KVM kernel (nVHE)", "backs up boot, then flashes the KernelSU-Next kernel with kvm-arm.mode=nvhe so QEMU can use /dev/kvm") { confirmKvm = true } }
+                } else if (ksu && ksuBuild != null) {
+                    item { Action("update the KernelSU-Next kernel", "backs up boot, then flashes the current KernelSU-Next build" + if (kvmBuild) " (KVM nVHE)" else "") { run { kernel.switchToKsu() } } }
+                }
                 if (ksu) item { Action("back to Magisk", "write the saved Magisk boot back and turn the modules on again") { confirmMagisk = true } }
                 items(backups, key = { it }) { b ->
                     Action("restore ${b.substringAfterLast('/')}", "write this backup back to boot") { confirmRestore = b }
@@ -136,13 +160,28 @@ fun KernelScreen(
             "1. Boot (with Magisk) is backed up to /sdcard/LarryLauncher/backup; that copy is the way back.\n" +
                 "2. Every Magisk module is switched off (they're turned back on if you go back).\n" +
                 "3. The KernelSU Next manager v3.4.2 is installed.\n" +
-                "4. The Larry kernel with KernelSU-Next is flashed, and Magisk is taken out of the ramdisk.\n\n" +
+                "4. The Larry kernel with KernelSU-Next is flashed, and Magisk is taken out of the ramdisk." +
+                (if (kvmBuild) " It boots KVM in nVHE host mode (kvm-arm.mode=nvhe) instead of Samsung's protected KVM, so QEMU can use /dev/kvm." else "") + "\n\n" +
                 "This kernel has Samsung's RKP/KDP/DEFEX protections off, which Knox notices, and Samsung Pay, Secure Folder and some banking apps may stop working. " +
                 "After the reboot Larry Launcher has no root until you allow it in KernelSU Next. If the phone doesn't boot, you need Odin/Brokkr and the backup. Continue?",
             "switch",
             onDismiss = { confirmKsu = false },
         ) {
             confirmKsu = false
+            run { kernel.switchToKsu() }
+        }
+    }
+    if (confirmKvm) {
+        ConfirmDialog(
+            "install the KVM kernel?",
+            "Flashes the same Larry kernel with KernelSU-Next, with one change: the boot command line has kvm-arm.mode=nvhe instead of protected, " +
+                "so KVM runs in host mode and QEMU can use /dev/kvm for arm64 guests. Built for SM-F721B on F721BXXSAHYI1 only. " +
+                "Boot is backed up to /sdcard/LarryLauncher/backup first, and the saved Magisk boot stays the way back. " +
+                "If the hypervisor still owns EL2, /dev/kvm can stay missing; the phone still boots normally. If it doesn't boot, you need Odin/Brokkr and the backup. Continue?",
+            "flash",
+            onDismiss = { confirmKvm = false },
+        ) {
+            confirmKvm = false
             run { kernel.switchToKsu() }
         }
     }
