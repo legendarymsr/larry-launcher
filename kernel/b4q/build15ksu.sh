@@ -15,9 +15,11 @@ MK="make -j4 O=out-ksu ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-
    -d KDP -d KDP_CRED -d KDP_NS -d SECURITY_DEFEX -d PROCA -d FIVE
  $MK olddefconfig
 }
+./scripts/config --file out-ksu/.config --set-str CMDLINE "stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=nvhe cgroup_disable=pressure cgroup.memory=nokmem"
 ./scripts/config --file out-ksu/.config $EXTRAS
 $MK olddefconfig
-grep -E "^CONFIG_(KSU|PID_NS|KPROBES|UH|RKP|KDP|KDP_CRED|SECURITY_DEFEX|PROCA|FIVE|LTO_CLANG_THIN)=" out-ksu/.config || true
+grep -E "^CONFIG_(KSU|PID_NS|KPROBES|UH|RKP|KDP|KDP_CRED|SECURITY_DEFEX|PROCA|FIVE|LTO_CLANG_THIN|KVM)=" out-ksu/.config || true
+grep -E "^CONFIG_CMDLINE=" out-ksu/.config || true
 grep -cE "^CONFIG_(UH|RKP|KDP|SECURITY_DEFEX|PROCA|FIVE)=y" out-ksu/.config || true
 grep -E "^CONFIG_(ISO9660_FS|JOLIET|ZISOFS|UDF_FS|SQUASHFS[A-Z0-9_]*|NETFILTER_XT_MATCH_ADDRTYPE)=" out-ksu/.config
 $MK Image
