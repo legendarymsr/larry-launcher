@@ -19,8 +19,8 @@
 - Samsung's UH, RKP (+CFP), KDP (+CRED, NS), DEFEX, PROCA and FIVE are off, the same set other Samsung KernelSU builds turn off; v3.4.2 has no Samsung RKP/KDP compatibility code.
 - `anykernel-android15-ksun.sh` swaps the kernel and, if the ramdisk is Magisk-patched, restores the stock ramdisk from Magisk's `.backup` (`magiskboot cpio restore`, what Magisk's uninstaller does). It aborts before writing if the result isn't stock or has no `init`.
 
-## 0.9.3 extras (both Android 15 kernels)
+## Extras (Android 15 kernels)
 
-`extras.sh` adds, built in: ISO9660 (Joliet, zisofs), UDF, SquashFS (zlib, LZ4, LZO, XZ, zstd, xattr, file-direct, per-CPU decompressors) and `NETFILTER_XT_MATCH_ADDRTYPE`. Comparing `vmlinux.symvers` against the previous builds: 0 of ~14,640 exported symbol CRCs changed and none were removed. Only `crc_itu_t` and `crc_itu_t_table` (from UDF) are new.
+`extras.sh` adds, built in: ISO9660 (Joliet, zisofs), UDF, SquashFS (zlib, LZ4, LZO, XZ, zstd, xattr, file-direct, per-CPU decompressors), `NETFILTER_XT_MATCH_ADDRTYPE`, and USB/IP (`CONFIG_USBIP_CORE=y`, `CONFIG_USBIP_VHCI_HCD=y`) so the ios-tools qemu-t8030 restore can attach Inferno's usb-tcp device into the Debian chroot via `/sys/devices/platform/vhci_hcd.0` without a second QEMU. Comparing `vmlinux.symvers` against the previous builds: 0 of ~14,640 exported symbol CRCs changed and none were removed for the filesystem extras. Only `crc_itu_t` and `crc_itu_t_table` (from UDF) are new; USB/IP adds its own exported symbols.
 
 Left out on purpose: `CGROUP_PIDS`, `CGROUP_DEVICE` and `CGROUP_PERF` each add an entry to `enum cgroup_subsys_id` (devices and perf_event sit before freezer/net_cls/net_prio/hugetlb in `cgroup_subsys.h`, shifting their ids) and grow `CGROUP_SUBSYS_COUNT`, which sizes the `subsys[]` / `e_cset_node[]` / `e_csets[]` arrays in `struct css_set` and `struct cgroup`. That's a layout change Samsung's prebuilt vendor modules weren't built against. `SYSVIPC` and `USER_NS` stay off for the same kind of reason. `SQUASHFS_4K_DEVBLK_SIZE` stays off; the default 1K block size works on loop devices.

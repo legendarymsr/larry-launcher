@@ -21,7 +21,7 @@ $MK olddefconfig
 grep -E "^CONFIG_(KSU|PID_NS|KPROBES|UH|RKP|KDP|KDP_CRED|SECURITY_DEFEX|PROCA|FIVE|LTO_CLANG_THIN|KVM)=" out-ksu/.config || true
 grep -E "^CONFIG_CMDLINE=" out-ksu/.config || true
 grep -cE "^CONFIG_(UH|RKP|KDP|SECURITY_DEFEX|PROCA|FIVE)=y" out-ksu/.config || true
-grep -E "^CONFIG_(ISO9660_FS|JOLIET|ZISOFS|UDF_FS|SQUASHFS[A-Z0-9_]*|NETFILTER_XT_MATCH_ADDRTYPE)=" out-ksu/.config
+grep -E "^CONFIG_(ISO9660_FS|JOLIET|ZISOFS|UDF_FS|SQUASHFS[A-Z0-9_]*|NETFILTER_XT_MATCH_ADDRTYPE|USBIP_CORE|USBIP_VHCI_HCD|USB)=" out-ksu/.config
 $MK Image
 strings out-ksu/arch/arm64/boot/Image | grep -m1 "Linux version"
 echo BUILD_DONE

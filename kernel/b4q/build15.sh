@@ -17,7 +17,7 @@ MK="make -j4 O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CROSS_COMPILE=aarch64-linux-gnu-
 ./scripts/config --file out/.config $EXTRAS
 $MK olddefconfig
 grep -E "CONFIG_(PID_NS|LTO_CLANG|CFI_CLANG|SECURITY_DEFEX|LOCALVERSION_AUTO|MODVERSIONS|KVM|CMDLINE)[= ]" out/.config
-grep -E "^CONFIG_(ISO9660_FS|JOLIET|ZISOFS|UDF_FS|SQUASHFS[A-Z0-9_]*|NETFILTER_XT_MATCH_ADDRTYPE)=" out/.config
+grep -E "^CONFIG_(ISO9660_FS|JOLIET|ZISOFS|UDF_FS|SQUASHFS[A-Z0-9_]*|NETFILTER_XT_MATCH_ADDRTYPE|USBIP_CORE|USBIP_VHCI_HCD|USB)=" out/.config
 $MK Image
 ls -la out/arch/arm64/boot/
 strings out/arch/arm64/boot/Image | grep -m1 "Linux version"
