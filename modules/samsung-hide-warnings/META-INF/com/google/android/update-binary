@@ -1,0 +1,8 @@
+#!/sbin/sh
+umask 022
+ui_print() { echo "$1"; }
+OUTFD=$2
+ZIPFILE=$3
+. /data/adb/magisk/util_functions.sh 2>/dev/null || { ui_print "Install from the Magisk or KernelSU app"; exit 1; }
+install_module
+exit 0

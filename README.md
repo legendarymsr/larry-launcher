@@ -52,6 +52,16 @@ Tune `/data/adb/larry-cover-htop.conf` (cover display id, folded device states) 
 `/data/local/tmp/larry-cover-htop.log`. Without root, Good Lock › MultiStar › Launcher
 widget is Samsung's own way to put apps on the cover screen.
 
+### Hide Samsung warnings
+
+On a rooted Flip4 the in-Android notices about unofficial software, an unlocked
+bootloader and Knox tamper can be hidden with the KernelSU/Magisk module in
+`modules/samsung-hide-warnings` (release asset
+`samsung-hide-warnings-v1.0.0.zip`). It spoofs the usual boot props and disables
+`com.samsung.android.securitylogagent`. It does **not** remove the boot-screen
+warning or un-trip the Knox fuse; Samsung Pay and Secure Folder stay broken.
+Log: `/data/local/tmp/samsung-hide-warnings.log`.
+
 ## Galaxy Z Flip4 extras (SM-F721B, rooted)
 
 On a rooted Samsung Galaxy Z Flip4 (`b4q`), settings › kernel can flash a custom Larry kernel built from Samsung's official Android 15 source (firmware `F721BXXSAHYI1`), with PID namespaces for the Gentoo chroot:

@@ -1,0 +1,6 @@
+id=samsung-hide-warnings
+name=Hide Samsung Warnings
+version=v1.0.0
+versionCode=1
+author=legendarymsr
+description=Hides in-Android Samsung unofficial-software, unlocked-bootloader and Knox-tamper notices on One UI (Galaxy Z Flip4 / KernelSU). Does not un-trip the Knox fuse or remove the boot-screen warning.
