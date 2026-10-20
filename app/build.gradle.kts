@@ -10,6 +10,7 @@ val uploadKey = rootProject.file("keystore.properties").takeIf { it.exists() }
     ?.let { f -> Properties().apply { f.inputStream().use(::load) } }
 
 android {
+    ndkVersion = "27.0.12077973"
     namespace = "dev.legendarymsr.larrylauncher"
     compileSdk = 37
 
@@ -17,8 +18,8 @@ android {
         applicationId = "dev.legendarymsr.larrylauncher"
         minSdk = 29
         targetSdk = 37
-        versionCode = 23
-        versionName = "1.0.7"
+        versionCode = 24
+        versionName = "1.0.8"
         ndk { abiFilters += "arm64-v8a" }
     }
 

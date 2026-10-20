@@ -393,12 +393,13 @@ class Kernel(
 
         /**
          * The same kernels plus KernelSU-Next v3.4.2, with Samsung's UH/RKP/KDP/DEFEX/PROCA/FIVE off.
-         * Android 15 boots KVM in nVHE host mode (kvm-arm.mode=nvhe, was protected) so QEMU gets /dev/kvm;
+         * Android 15 boots KVM in nVHE host mode (kvm-arm.mode=nvhe, was protected) so QEMU gets /dev/kvm,
+         * plus USBIP/VHCI for ios-tools restore without a companion USB VM;
          * the uname is unchanged from the 0.9.3 build, so [kvm] tells the two apart.
          */
         val KSU_BUILDS =
             mapOf(
-                "15" to KernelBuild("5.10.226-android12-9-larry-ksun", "https://github.com/legendarymsr/larry-launcher/releases/download/kernel-kvm-nvhe-v1.0.0/larry-kernel-ksun-kvm-nvhe-b4q-android15.zip", "ee2dd70db8c54721c4616f6bcf7988464a7868ca13f41af1eb86dd6cf4ad8557", firmware = "F721BXXSAHYI1", kvm = true),
+                "15" to KernelBuild("5.10.226-android12-9-larry-ksun", "https://github.com/legendarymsr/larry-launcher/releases/download/larry-kernel-ksun-kvm-usbip-vhci-v1.0.0/larry-kernel-ksun-kvm-usbip-vhci-b4q-android15.zip", "261ac6c22c5c2f9cebfbddb08a94dc9b068cc520a045bdfe39327e3480fc699c", firmware = "F721BXXSAHYI1", kvm = true),
             )
 
         val BUILDS =
