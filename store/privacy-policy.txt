@@ -1,6 +1,6 @@
 Privacy Policy
 
-Effective Date: 13.10.2026
+Effective Date: 13.11.2026
 
 Larry Launcher ("the App") is an Android home screen launcher with an optional Gentoo Linux environment, developed by legendarymsr ("we," "us," or "our"). This Privacy Policy explains how the App handles information.
 
@@ -15,22 +15,35 @@ The App does not collect, store, or transmit any personal data to us. We do not:
 
 2. Local Data Storage
 
-Your home screen layout, settings and, if you install it, the Gentoo environment and everything in it are stored only on your device. Uninstalling the App deletes the App's data. Removing Linux in the App's settings deletes the Gentoo environment, its files and its swap file.
+Your home screen layout, settings and, if you install it, the Gentoo environment and everything in it are stored only on your device.
+
+Removing Linux in the App's settings deletes the Gentoo environment and its files. It does not delete the optional swap file; delete that separately in the App's Linux settings.
+
+Uninstalling the App deletes the App's own data. It does not undo changes you made with root, and it does not delete files kept outside the App, including:
+- The optional swap file at /data/larrylauncher/swapfile, unless you deleted it in the App first.
+- Boot partition backups at /sdcard/LarryLauncher/backup, if you used settings › kernel.
+- The optional De-Google keep-off module and its list under /data/adb, if you installed them.
+- A flashed Larry kernel, or a switch to KernelSU-Next.
 
 3. Root Access
 
-The Gentoo environment runs as a chroot on a Magisk-rooted device. The App asks Magisk for root only to set up, start, update and remove that chroot (mounting, SELinux policy for the chroot, and an optional swap file). Root is never used to read your other apps' data or send anything off the device.
+Optional features that change the system need root. The App asks your root manager (Magisk, KernelSU or KernelSU-Next) for root through the standard su prompt. Root is used only for features you choose, and never to read your other apps' data or send anything off the device:
+
+- Set up, start, update and remove the Gentoo chroot (mounting, SELinux policy for the chroot, and an optional swap file).
+- On a supported Galaxy Z Flip4, back up and flash a Larry kernel, switch between Magisk and KernelSU-Next, and install the KernelSU-Next manager.
+- De-Google: turn listed Google apps off or back on for your user, and optionally install a module that re-applies that list after boot.
+- Show htop on a flip phone's cover screen, when you enable that option.
 
 4. Device Permissions
 
-- Internet: used only for the downloads listed in section 5.
+- Internet: used only for the downloads and requests listed in section 5.
 - Foreground service and notifications: keep the Linux environment running while it is in use and show its status and progress.
 - Uninstalling apps: used only when you choose to uninstall an app from the app drawer. Android asks you to confirm every uninstall.
-- Notification access (optional, off unless you grant it): lets the launcher show and control what is currently playing. Notifications are read on your device and are not stored or sent anywhere.
+- Notification access (optional, off unless you grant it): lets the launcher show and control what is currently playing, and list notifications in widgets. Notifications are read on your device and are not stored or sent anywhere.
 
 5. Network Connections
 
-The App makes network requests only when you install or update the optional Gentoo environment. Each request reveals your IP address to the server, which handles it under its own privacy policy.
+The App makes network requests only when you use a feature that needs them. Each request reveals your IP address to the server, which handles it under its own privacy policy.
 
 Gentoo (gentoo.org)
 - The official Gentoo arm64 stage3 and the Portage tree, from distfiles.gentoo.org and Gentoo's mirrors.
@@ -39,25 +52,29 @@ Gentoo (gentoo.org)
 - Privacy Policy: https://www.gentoo.org/inside-gentoo/foundation/privacy.html
 
 GitHub (github.com)
+- During Gentoo setup, the App clones the legenddots dotfiles repository from GitHub.
 - Only if you enable the optional GPU driver on a supported Mali device, a pinned Vulkan driver file is downloaded from GitHub and checked against a fixed checksum.
+- On a supported Galaxy Z Flip4, if you use settings › kernel, pinned kernel zip files (and, when switching to KernelSU-Next, the KernelSU-Next manager APK) are downloaded from GitHub and checked against fixed checksums.
 - Privacy Policy: https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement
 
-Software you install inside Gentoo runs under your control and may make its own connections. We do not share any data with third parties ourselves.
+Widgets you add can make their own HTTP(S) requests to addresses in the widget. Software you install inside Gentoo runs under your control and may make its own connections. Links in settings (such as F-Droid, Aurora Store or microG) open in your browser. We do not share any data with third parties ourselves.
 
-6. Children's Privacy
+6. Age Requirement / Children's Privacy
 
-The App is not intended for children under 13 years of age. We do not knowingly process data from children.
+The App is not intended for anyone under 16 years of age, because it requires a rooted device and advanced system changes. The App collects no data, so there is no data from children (or anyone) to process.
 
 7. GDPR (European Users)
 
-All data the App stores stays on your device and under your control. Network requests are made only to provide the features you choose to use.
+All data the App stores stays on your device and under your control. We do not collect personal data. Network requests are made only to provide the features you choose to use.
 
 8. Your Rights
 
 You can:
-- Revoke notification access and root access at any time in your device settings or Magisk.
-- Remove Linux and its files in the App's settings.
-- Delete all App data by uninstalling the App.
+- Revoke notification access and root access at any time in your device settings or your root manager (Magisk, KernelSU or KernelSU-Next).
+- Remove Linux and its files in the App's settings, and delete the swap file there separately.
+- Restore disabled Google apps from the App's De-Google settings. Remove the optional keep-off module in your root manager.
+- Delete all App data by uninstalling the App. Files and system changes listed in section 2 stay until you remove them yourself.
+- Delete boot backups in /sdcard/LarryLauncher/backup when you no longer need them.
 
 9. Changes to This Privacy Policy
 
